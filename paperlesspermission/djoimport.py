@@ -8,14 +8,15 @@ stored on an SFTP Server.
 
 import csv
 from base64 import decodebytes
-from io import BytesIO, StringIO
+from io import BytesIO
 
 import paramiko
 
 from paperlesspermission.models import Guardian, GradeLevel, Student, Faculty, FieldTrip, Course, Section
 from paperlesspermission.utils import BytesIO_to_StringIO
 
-class DJOImport(object):
+
+class DJOImport():
     """Imports data from SQLRunner/Powerschool into Paperless Permission.
 
     Attributes:
@@ -72,14 +73,15 @@ class DJOImport(object):
         hostkeys = ssh_client.get_host_keys()
         hostkeys.add(hostname, 'ssh-rsa', key)
 
-        self.fs_classes    = BytesIO()
-        self.fs_faculty    = BytesIO()
-        self.fs_student    = BytesIO()
-        self.fs_parent     = BytesIO()
+        self.fs_classes = BytesIO()
+        self.fs_faculty = BytesIO()
+        self.fs_student = BytesIO()
+        self.fs_parent = BytesIO()
         self.fs_enrollment = BytesIO()
 
         try:
-            ssh_client.connect(hostname, username=username, password=password, look_for_keys=False, allow_agent=False)
+            ssh_client.connect(hostname, username=username,
+                               password=password, look_for_keys=False, allow_agent=False)
             sftp_client = ssh_client.open_sftp()
             sftp_client.chdir('ps_data_export')
 
@@ -107,9 +109,9 @@ class DJOImport(object):
             try:
                 faculty_obj = Faculty.objects.get(person_id=row['RECORDID'])
 
-                faculty_obj.first_name     = row['FIRST_NAME']
-                faculty_obj.last_name      = row['LAST_NAME']
-                faculty_obj.email          = row['EMAIL_ADDR']
+                faculty_obj.first_name = row['FIRST_NAME']
+                faculty_obj.last_name = row['LAST_NAME']
+                faculty_obj.email = row['EMAIL_ADDR']
                 faculty_obj.preferred_name = row['PREFERREDNAME']
 
                 faculty_obj.save()
@@ -160,7 +162,7 @@ class DJOImport(object):
         classes_reader = csv.DictReader(classes_data, delimiter='\t')
 
         # Keep track of all written Courses and Section objects.
-        written_courses  = []
+        written_courses = []
         written_sections = []
 
         for row in classes_reader:
@@ -186,7 +188,8 @@ class DJOImport(object):
                 section.course = course
                 section.section_number = row['SECTION_NUMBER']
                 section.teacher = Faculty.objects.get(person_id=row['TEACHER'])
-                section.coteacher = Faculty.objects.get(person_id=row['COTEACHER']) if row['COTEACHER'] else None
+                section.coteacher = Faculty.objects.get(
+                    person_id=row['COTEACHER']) if row['COTEACHER'] else None
                 section.school_year = row['SCHOOLYEAR']
                 section.room = row['ROOM']
                 section.period = row['EXPRESSION']
@@ -198,7 +201,8 @@ class DJOImport(object):
                     course=course,
                     section_number=row['SECTION_NUMBER'],
                     teacher=Faculty.objects.get(person_id=row['TEACHER']),
-                    coteacher=Faculty.objects.get(person_id=row['COTEACHER']) if row['COTEACHER'] else None,
+                    coteacher=Faculty.objects.get(
+                        person_id=row['COTEACHER']) if row['COTEACHER'] else None,
                     school_year=row['SCHOOLYEAR'],
                     room=row['ROOM'],
                     period=row['EXPRESSION'],
