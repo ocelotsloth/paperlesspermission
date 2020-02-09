@@ -13,14 +13,14 @@ class Person(models.Model):
         person_id (CharField): The unique identifier for the person
         first_name (CharField): First Name
         last_name (CharField): Last Name
-        email (CharField): Email address
+        email (EmailField): Email address
         cell_number (PhoneNumberField): Cell phone number
         notify_cell (BooleanField): Whether or not to send SMS messages
     """
     person_id = models.IntegerField(unique=True)
     first_name = models.CharField(max_length=200)
     last_name = models.CharField(max_length=200)
-    email = models.CharField(max_length=200)
+    email = models.EmailField(max_length=254)
     cell_number = PhoneNumberField()
     notify_cell = models.BooleanField()
 
