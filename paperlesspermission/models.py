@@ -16,6 +16,7 @@ class Person(models.Model):
         email (EmailField): Email address
         cell_number (PhoneNumberField): Cell phone number
         notify_cell (BooleanField): Whether or not to send SMS messages
+        hidden (BooleanField): Hide persons no longer in upstream data source
     """
     person_id = models.IntegerField(unique=True)
     first_name = models.CharField(max_length=200)
@@ -23,6 +24,7 @@ class Person(models.Model):
     email = models.EmailField(max_length=254)
     cell_number = PhoneNumberField()
     notify_cell = models.BooleanField()
+    hidden = models.BooleanField(default=False)
 
     class Meta:
         abstract = True
