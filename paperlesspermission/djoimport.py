@@ -12,7 +12,7 @@ from io import BytesIO, StringIO
 
 import paramiko
 
-from paperlesspermission.models import Guardian, GradeLevel, Student, Faculty, FieldTrip, Course, Section, Person
+from paperlesspermission.models import Guardian, GradeLevel, Student, Faculty, FieldTrip, Course, Section
 
 class DJOImport(object):
     """Imports data from SQLRunner/Powerschool into Paperless Permission.
@@ -110,6 +110,8 @@ class DJOImport(object):
                 faculty_obj.last_name      = row['LAST_NAME']
                 faculty_obj.email          = row['EMAIL_ADDR']
                 faculty_obj.preferred_name = row['PREFERREDNAME']
+
+                faculty_obj.save()
             except Faculty.DoesNotExist:
                 faculty_obj = Faculty(
                     person_id=row['RECORDID'],
