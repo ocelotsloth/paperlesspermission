@@ -13,6 +13,7 @@ from io import BytesIO, StringIO
 import paramiko
 
 from paperlesspermission.models import Guardian, GradeLevel, Student, Faculty, FieldTrip, Course, Section
+from paperlesspermission.utils import BytesIO_to_StringIO
 
 class DJOImport(object):
     """Imports data from SQLRunner/Powerschool into Paperless Permission.
@@ -94,7 +95,7 @@ class DJOImport(object):
         """Parses the fs_faculty file and imports to the database."""
 
         # csv.reader requires a StringIO file-like-object, not a BytesIO
-        faculty_data = StringIO(self.fs_faculty.getvalue().decode())
+        faculty_data = BytesIO_to_StringIO(self.fs_faculty.getvalue().decode())
 
         faculty_reader = csv.DictReader(faculty_data, delimiter='\t')
 
@@ -132,3 +133,91 @@ class DJOImport(object):
             if record.person_id not in written_ids:
                 record.hidden = True
                 record.save()
+
+    def import_classes(self):
+        """Parses all courses and sections.
+
+        All enrollment data is imported with the Students.
+
+        The fs_classes file defines each `Section` in the school. There is no
+        separate file for `Courses`; instead the course data is duplicated with
+        each `Section` row. To import the classes:
+
+        For each Section Row:
+          - Look at the course ID (DCID or CID). Is it in the database yet? If
+            not, add it.
+          - Once the `Course` is taken care of we can then add the Section.
+
+        Just like every other import, we'll need to keep track of each Course
+        and Section ID that we find. Once finished importing the data we need to
+        run through all the existing Courses and Sections to set the hidden flag
+        on any records that have been deleted from the upstream data source.
+        """
+
+        # csv.reader requires a StringIO file-like object, not a BytesIO
+        classes_data = BytesIO_to_StringIO(self.fs_classes)
+
+        classes_reader = csv.DictReader(classes_data, delimiter='\t')
+
+        # Keep track of all written Courses and Section objects.
+        written_courses  = []
+        written_sections = []
+
+        for row in classes_reader:
+            # Handle the Course
+            try:
+                course = Course.objects.get(course_number=row['COURSE_NUMBER'])
+                course.course_name = row['COURSE_NAME']
+                course.hidden = False
+                course.save()
+            except Course.DoesNotExist:
+                course = Course(
+                    course_number=row['COURSE_NUMBER'],
+                    course_name=row['COURSE_NAME'],
+                    hidden=False
+                )
+                course.save()
+            finally:
+                written_courses.append(row['COURSE_NUMBER'])
+
+            # Handle the Section
+            try:
+                section = Section.objects.get(section_number=row['RECORDID'])
+                section.course = course
+                section.section_number = row['SECTION_NUMBER']
+                section.teacher = Faculty.objects.get(person_id=row['TEACHER'])
+                section.coteacher = Faculty.objects.get(person_id=row['COTEACHER']) if row['COTEACHER'] else None
+                section.school_year = row['SCHOOLYEAR']
+                section.room = row['ROOM']
+                section.period = row['EXPRESSION']
+                section.hidden = False
+                section.save()
+            except Section.DoesNotExist:
+                section = Section(
+                    section_id=row['RECORDID'],
+                    course=course,
+                    section_number=row['SECTION_NUMBER'],
+                    teacher=Faculty.objects.get(person_id=row['TEACHER']),
+                    coteacher=Faculty.objects.get(person_id=row['COTEACHER']) if row['COTEACHER'] else None,
+                    school_year=row['SCHOOLYEAR'],
+                    room=row['ROOM'],
+                    period=row['EXPRESSION'],
+                    hidden=False
+                )
+                section.save()
+            finally:
+                written_sections.append(row['RECORDID'])
+
+        # If we didn't see any given Course ID when running the import, set
+        # their hidden value to `False`. This will hide their information from
+        # certain sections of the UI while retaining historical records.
+        for course in Course.objects.all():
+            if course.course_number not in written_courses:
+                course.hidden = True
+                course.save()
+
+        # Same thing, only for the Section objects.
+        for section in Section.objects.all():
+            if section.section_id not in written_sections:
+                section.hidden = True
+                section.save()

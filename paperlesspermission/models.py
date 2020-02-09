@@ -84,9 +84,11 @@ class Course(models.Model):
     Attributes:
         course_number (CharField): The course identifier
         course_name (CharField): The name of the course
+        hidden (BooleanField): Hides courses no longer present in upstream data
     """
     course_number = models.CharField(unique=True, max_length=30)
     course_name = models.CharField(max_length=200)
+    hidden = models.BooleanField(default=False)
 
     def __str__(self):
         return self.course_name
@@ -95,19 +97,25 @@ class Section(models.Model):
     """Defines a `Section` of a `Course`.
 
     Attributes:
+        section_id (CharField): Section Unique Identifier
         course (ForeignKey): FK to `Course`
         section_number (CharField): The section identifier
         teacher (ForeignKey): FK to `Faculty`
+        coteacher (ForeignKey): FK to `Faculty`, can be set Null
         school_year (CharField): School year the section is held in
         room (CharField): Room the section is held in
         period (CharField): Period the section is held during
+        hidden (BooleanField): Hides sections no longer present in upstream data
     """
+    section_id = models.CharField(unique=True, max_length=30)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     section_number = models.CharField(unique=False, max_length=30)
-    teacher = models.ForeignKey(Faculty, on_delete=models.CASCADE)
+    teacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL)
+    coteacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL)
     school_year = models.CharField(max_length=30)
     room = models.CharField(max_length=30)
     period = models.CharField(max_length=30)
+    hidden = models.BooleanField(default=False)
 
     def __str__(self):
         return ("%s - Section %s" % self.course, self.section_number)
