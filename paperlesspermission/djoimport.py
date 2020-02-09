@@ -14,7 +14,7 @@ from io import BytesIO
 
 import paramiko
 
-from paperlesspermission.models import Guardian, Student, Faculty, FieldTrip, Course, Section
+from paperlesspermission.models import Guardian, Student, Faculty, Course, Section
 from paperlesspermission.utils import bytes_io_to_tsv_dict_reader
 
 
@@ -376,6 +376,7 @@ class DJOImport():
         print(students_not_found)
 
     def import_all(self):
+        """Runs all of the import functions in the correct order."""
         self.import_faculty()
         self.import_classes()
         self.import_students()
