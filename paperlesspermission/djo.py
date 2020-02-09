@@ -96,7 +96,10 @@ class DJOImport():
             ssh_client.close()
 
     def import_faculty(self):
-        """Parses the fs_faculty file and imports to the database."""
+        """Parses the fs_faculty file and imports to the database.
+
+        Chances are you should be running import_all instead.
+        """
 
         faculty_reader = bytes_io_to_tsv_dict_reader(self.fs_faculty)
 
@@ -137,6 +140,8 @@ class DJOImport():
 
     def import_classes(self):
         """Parses all courses and sections.
+
+        Chances are you should be running import_all instead.
 
         All enrollment data is imported with the fs_enrollment after
         fs_students.
@@ -269,6 +274,8 @@ class DJOImport():
     def import_guardians(self):
         """Parses all parents and guardians.
 
+        Chances are you should be running import_all instead.
+
         The (simplified) structure of this table is as follows:
 
             STUDENT_NUMBER
@@ -355,7 +362,10 @@ class DJOImport():
                 guardian.save()
 
     def import_enrollment(self):
-        """Parses all student enrollment data."""
+        """Parses all student enrollment data.
+
+        Chances are you should be running import_all instead.
+        """
 
         enrollment_reader = bytes_io_to_tsv_dict_reader(self.fs_enrollment)
 
@@ -382,3 +392,17 @@ class DJOImport():
         self.import_students()
         self.import_guardians()
         self.import_enrollment()
+
+    def close(self):
+        """Closes the ByteIO buffers."""
+        self.fs_classes.close()
+        self.fs_enrollment.close()
+        self.fs_faculty.close()
+        self.fs_parent.close()
+        self.fs_student.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
