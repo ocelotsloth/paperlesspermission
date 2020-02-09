@@ -4,16 +4,18 @@ This module defines the class responsible for importing data originating from
 Powerschool. The data itself is exported by SQLRunner (an internal application
 that negotiates a secure tunnel to Powerschool and runs queries) to CSV files
 stored on an SFTP Server.
+
+To use this module you'll want to import DJOImport, create a new class instance,
+and then run the `import_all()` method.
 """
 
-import csv
 from base64 import decodebytes
 from io import BytesIO
 
 import paramiko
 
-from paperlesspermission.models import Guardian, GradeLevel, Student, Faculty, FieldTrip, Course, Section
-from paperlesspermission.utils import BytesIO_to_StringIO
+from paperlesspermission.models import Guardian, Student, Faculty, FieldTrip, Course, Section
+from paperlesspermission.utils import bytes_io_to_tsv_dict_reader
 
 
 class DJOImport():
@@ -96,10 +98,7 @@ class DJOImport():
     def import_faculty(self):
         """Parses the fs_faculty file and imports to the database."""
 
-        # csv.reader requires a StringIO file-like-object, not a BytesIO
-        faculty_data = BytesIO_to_StringIO(self.fs_faculty.getvalue().decode())
-
-        faculty_reader = csv.DictReader(faculty_data, delimiter='\t')
+        faculty_reader = bytes_io_to_tsv_dict_reader(self.fs_faculty)
 
         # Keep track of all written Faculty objects so we can later hide old
         # records that have been removed from the upstream data source.
@@ -139,7 +138,8 @@ class DJOImport():
     def import_classes(self):
         """Parses all courses and sections.
 
-        All enrollment data is imported with the Students.
+        All enrollment data is imported with the fs_enrollment after
+        fs_students.
 
         The fs_classes file defines each `Section` in the school. There is no
         separate file for `Courses`; instead the course data is duplicated with
@@ -156,35 +156,35 @@ class DJOImport():
         on any records that have been deleted from the upstream data source.
         """
 
-        # csv.reader requires a StringIO file-like object, not a BytesIO
-        classes_data = BytesIO_to_StringIO(self.fs_classes)
-
-        classes_reader = csv.DictReader(classes_data, delimiter='\t')
+        classes_reader = bytes_io_to_tsv_dict_reader(self.fs_classes)
 
         # Keep track of all written Courses and Section objects.
         written_courses = []
         written_sections = []
 
         for row in classes_reader:
-            # Handle the Course
-            try:
-                course = Course.objects.get(course_number=row['COURSE_NUMBER'])
-                course.course_name = row['COURSE_NAME']
-                course.hidden = False
-                course.save()
-            except Course.DoesNotExist:
-                course = Course(
-                    course_number=row['COURSE_NUMBER'],
-                    course_name=row['COURSE_NAME'],
-                    hidden=False
-                )
-                course.save()
-            finally:
-                written_courses.append(row['COURSE_NUMBER'])
+            # Handle the Course, but skip this step if we've already seen this
+            # course.
+            if row['COURSE_NUMBER'] not in written_courses:
+                try:
+                    course = Course.objects.get(
+                        course_number=row['COURSE_NUMBER'])
+                    course.course_name = row['COURSE_NAME']
+                    course.hidden = False
+                    course.save()
+                except Course.DoesNotExist:
+                    course = Course(
+                        course_number=row['COURSE_NUMBER'],
+                        course_name=row['COURSE_NAME'],
+                        hidden=False
+                    )
+                    course.save()
+                finally:
+                    written_courses.append(row['COURSE_NUMBER'])
 
             # Handle the Section
             try:
-                section = Section.objects.get(section_number=row['RECORDID'])
+                section = Section.objects.get(section_id=row['RECORDID'])
                 section.course = course
                 section.section_number = row['SECTION_NUMBER']
                 section.teacher = Faculty.objects.get(person_id=row['TEACHER'])
@@ -225,3 +225,159 @@ class DJOImport():
             if section.section_id not in written_sections:
                 section.hidden = True
                 section.save()
+
+    def import_students(self):
+        """Parses all students."""
+
+        student_reader = bytes_io_to_tsv_dict_reader(self.fs_student)
+
+        # Keep track of all written Students objects
+        written_students = []
+
+        for row in student_reader:
+            try:
+                student = Student.objects.get(person_id=row['RECORDID'])
+                student.grade_level = row['GRADE_LEVEL']
+                student.first_name = row['FIRST_NAME']
+                student.last_name = row['LAST_NAME']
+                student.email = row['EMAIL']
+                student.notify_cell = False
+                student.hidden = False
+                student.save()
+            except Student.DoesNotExist:
+                student = Student(
+                    person_id=row['RECORDID'],
+                    first_name=row['FIRST_NAME'],
+                    last_name=row['LAST_NAME'],
+                    email=row['EMAIL'],
+                    notify_cell=False,
+                    hidden=False,
+                    grade_level=row['GRADE_LEVEL']
+                )
+                student.save()
+            finally:
+                written_students.append(row['RECORDID'])
+
+        # If we didn't see any given Student IDs when running this import, set
+        # their `hidden` value to `False`. This will hide their information from
+        # certain sections of the UI while retaining historical records.
+        for student in Student.objects.all():
+            if student.person_id not in written_students:
+                student.hidden = True
+                student.save()
+
+    def import_guardians(self):
+        """Parses all parents and guardians.
+
+        The (simplified) structure of this table is as follows:
+
+            STUDENT_NUMBER
+            CNT1_ID
+            CNT1_FNAME
+            CNT1_LNAME
+            CNT1_REL
+            CNT1_CPHONE
+            CNT1_EMAIL
+            CNT2_ID
+            CNT2_FNAME
+            CNT2_LNAME
+            CNT2_REL
+            CNT2_CPHONE
+            CNT2_EMAIL
+            CNT3_ID
+            CNT3_FNAME
+            CNT3_LNAME
+            CNT3_REL
+            CNT3_CPHONE
+            CNT3_EMAIL
+
+        Each `CNT{number}` block is potentially a new guardian. That said, they
+        are also duplicated for each student that shares parents/guardians.
+        """
+
+        guardian_reader = bytes_io_to_tsv_dict_reader(self.fs_parent)
+
+        written_guardians = []
+
+        def handle_guardian(row, i):
+            """Utility function to handle CNT{i}.
+
+            Parameters:
+                row (dict): csv.DictReader row for a student
+                i (int): Which CNT number to handle
+            """
+            cnt_n = 'CNT{0}'.format(i)
+
+            # This section is skipped if the guardian ID has been seen before.
+            # This prevents the students from being cleared from the guardians
+            # after the initial import.
+            if row[cnt_n + '_ID'] and row[cnt_n + '_ID'] not in written_guardians:
+                try:
+                    guardian = Guardian.objects.get(
+                        person_id=row[cnt_n + '_ID'])
+                    guardian.first_name = row[cnt_n + '_FNAME']
+                    guardian.last_name = row[cnt_n + '_LNAME']
+                    guardian.email = row[cnt_n + '_EMAIL']
+                    guardian.cell_number = row[cnt_n + '_CPHONE']
+                    guardian.notify_cell = bool(row[cnt_n + '_CPHONE'])
+                    guardian.hidden = False
+                    guardian.relationship = row[cnt_n + '_REL']
+                    guardian.students.clear()  # Clear students, these will be added back later
+                    guardian.save()
+                    return guardian
+                except Guardian.DoesNotExist:
+                    guardian = Guardian(
+                        person_id=row[cnt_n + '_ID'],
+                        first_name=row[cnt_n + '_FNAME'],
+                        last_name=row[cnt_n + '_LNAME'],
+                        email=row[cnt_n + '_EMAIL'],
+                        cell_number=row[cnt_n + '_CPHONE'],
+                        notify_cell=bool(row[cnt_n + '_CPHONE']),
+                        hidden=False,
+                        relationship=row[cnt_n + '_REL']
+                    )
+                    guardian.save()
+                    return guardian
+                finally:
+                    written_guardians.append(row[cnt_n + '_ID'])
+            elif row[cnt_n + '_ID']:
+                return Guardian.objects.get(person_id=row[cnt_n + '_ID'])
+            else:
+                return None
+
+        for row in guardian_reader:
+            for i in range(1, 4):  # [1, 2, 3]
+                guardian = handle_guardian(row, i)
+                if not guardian:
+                    continue
+                guardian.students.add(Student.objects.get(
+                    person_id=row['STUDENT_NUMBER']))
+                guardian.save()
+
+    def import_enrollment(self):
+        """Parses all student enrollment data."""
+
+        enrollment_reader = bytes_io_to_tsv_dict_reader(self.fs_enrollment)
+
+        # Start by clearing all existing enrollment
+        for student in Student.objects.all():
+            student.section_set.clear()
+
+        students_not_found = []
+        for row in enrollment_reader:
+            try:
+                student = Student.objects.get(person_id=row['STUDENT_NUMBER'])
+                student.section_set.add(Section.objects.get(
+                    section_id=row['SECTIONID']))
+            except Student.DoesNotExist:
+                if row['STUDENT_NUMBER'] not in students_not_found:
+                    students_not_found.append(row['STUDENT_NUMBER'])
+                    print('Student: {0} does not exist!'.format(row['STUDENT_NUMBER']))
+        print(students_not_found)
+
+    def import_all(self):
+        self.import_faculty()
+        self.import_classes()
+        self.import_students()
+        self.import_guardians()
+        self.import_enrollment()

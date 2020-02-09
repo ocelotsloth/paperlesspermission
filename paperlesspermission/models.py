@@ -18,7 +18,7 @@ class Person(models.Model):
         notify_cell (BooleanField): Whether or not to send SMS messages
         hidden (BooleanField): Hide persons no longer in upstream data source
     """
-    person_id = models.IntegerField(unique=True)
+    person_id = models.CharField(unique=True, max_length=200)
     first_name = models.CharField(max_length=200)
     last_name = models.CharField(max_length=200)
     email = models.EmailField(max_length=254)
@@ -45,24 +45,16 @@ class Guardian(Person):
     relationship = models.CharField(max_length=30)
     students = models.ManyToManyField('Student')
 
-class GradeLevel(models.Model):
-    """Defines the different grade levels a `Student` can be a member of.
-
-    Attributes:
-        name (CharField): The grade level identifier
-    """
-    name = models.CharField(max_length=30)
-
 class Student(Person):
     """Defines a Student.
 
     Extends the `Person` class.
 
     Attributes:
-        grade_level (ForeignKey): Foreign Key to the student's grade level
+        grade_level (String): Student's grade level
         guardians (ManyToManyField): All of the `Guardians` related to the Student
     """
-    grade_level = models.ForeignKey(GradeLevel, on_delete=models.CASCADE)
+    grade_level = models.CharField(max_length=30)
     guardians = models.ManyToManyField(Guardian)
 
 class Faculty(Person):
@@ -111,11 +103,12 @@ class Section(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     section_number = models.CharField(unique=False, max_length=30)
     teacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL)
-    coteacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL)
+    coteacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL, related_name='coteacher_set')
     school_year = models.CharField(max_length=30)
     room = models.CharField(max_length=30)
     period = models.CharField(max_length=30)
     hidden = models.BooleanField(default=False)
+    students = models.ManyToManyField(Student)
 
     def __str__(self):
         return ("%s - Section %s" % self.course, self.section_number)
@@ -146,7 +139,7 @@ class FieldTrip(models.Model):
     faculty = models.ManyToManyField(Faculty)
     courses = models.ManyToManyField(Course)
     sections = models.ManyToManyField(Section)
-    grade_levels = models.ManyToManyField(GradeLevel)
+    grade_levels = models.CharField(max_length=30)
 
     def __str__(self):
         return self.name
