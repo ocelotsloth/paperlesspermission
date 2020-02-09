@@ -43,16 +43,24 @@ class Guardian(Person):
     relationship = models.CharField(max_length=30)
     students = models.ManyToManyField('Student')
 
+class GradeLevel(models.Model):
+    """Defines the different grade levels a `Student` can be a member of.
+
+    Attributes:
+        name (CharField): The grade level identifier
+    """
+    name = models.CharField(max_length=30)
+
 class Student(Person):
     """Defines a Student.
 
     Extends the `Person` class.
 
     Attributes:
-        grade_level (CharField): The grade level of the Student
+        grade_level (ForeignKey): Foreign Key to the student's grade level
         guardians (ManyToManyField): All of the `Guardians` related to the Student
     """
-    grade_level = models.CharField(max_length=30)
+    grade_level = models.ForeignKey(GradeLevel, on_delete=models.CASCADE)
     guardians = models.ManyToManyField(Guardian)
 
 class Faculty(Person):
@@ -118,6 +126,8 @@ class FieldTrip(models.Model):
             attend this field trip
         sections (ManyToManyField): Students enrolled in these sections will
             automatically be invited to attend this field trip
+        grade_levels (ManyToManyField): Students enrolled in these grade levels
+            will automatically be invited to attend this field trip
     """
     name = models.CharField(max_length=200)
     start_date = models.DateTimeField()
@@ -126,6 +136,7 @@ class FieldTrip(models.Model):
     faculty = models.ManyToManyField(Faculty)
     courses = models.ManyToManyField(Course)
     sections = models.ManyToManyField(Section)
+    grade_levels = models.ManyToManyField(GradeLevel)
 
     def __str__(self):
         return self.name
