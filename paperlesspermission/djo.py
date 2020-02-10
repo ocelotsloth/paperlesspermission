@@ -382,7 +382,8 @@ class DJOImport():
             except Student.DoesNotExist:
                 if row['STUDENT_NUMBER'] not in students_not_found:
                     students_not_found.append(row['STUDENT_NUMBER'])
-                    print('Student: {0} does not exist!'.format(row['STUDENT_NUMBER']))
+                    print('Student: {0} does not exist!'.format(
+                        row['STUDENT_NUMBER']))
         print(students_not_found)
 
     def import_all(self):

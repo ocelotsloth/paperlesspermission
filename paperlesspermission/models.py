@@ -6,6 +6,7 @@ This file is used to define all of the data models used by Paperless Permission.
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
+
 class Person(models.Model):
     """This is an abstract class that defines the common attributes of people.
 
@@ -32,6 +33,7 @@ class Person(models.Model):
     def __str__(self):
         return ("%s %s" % self.first_name, self.last_name)
 
+
 class Guardian(Person):
     """Defines a student's parent/guardian.
 
@@ -45,6 +47,7 @@ class Guardian(Person):
     relationship = models.CharField(max_length=30)
     students = models.ManyToManyField('Student')
 
+
 class Student(Person):
     """Defines a Student.
 
@@ -57,6 +60,7 @@ class Student(Person):
     grade_level = models.CharField(max_length=30)
     guardians = models.ManyToManyField(Guardian)
 
+
 class Faculty(Person):
     """Defines Faculty/Staff that will run field trips.
 
@@ -67,6 +71,7 @@ class Faculty(Person):
 
     def __str__(self):
         return self.preferred_name
+
 
 class Course(models.Model):
     """Defines a `Course`.
@@ -84,6 +89,7 @@ class Course(models.Model):
 
     def __str__(self):
         return self.course_name
+
 
 class Section(models.Model):
     """Defines a `Section` of a `Course`.
@@ -103,7 +109,8 @@ class Section(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     section_number = models.CharField(unique=False, max_length=30)
     teacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL)
-    coteacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL, related_name='coteacher_set')
+    coteacher = models.ForeignKey(
+        Faculty, null=True, on_delete=models.SET_NULL, related_name='coteacher_set')
     school_year = models.CharField(max_length=30)
     room = models.CharField(max_length=30)
     period = models.CharField(max_length=30)
@@ -112,6 +119,7 @@ class Section(models.Model):
 
     def __str__(self):
         return ("%s - Section %s" % self.course, self.section_number)
+
 
 class FieldTrip(models.Model):
     """Defines a `FieldTrip`.
