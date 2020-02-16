@@ -1,0 +1,23 @@
+---
+
+- hosts: all
+  become: true
+  become_method: sudo
+  become_user: root
+  tasks:
+    - name: Install Python and related packages
+      apt:
+        name: [ 'python3', 'python3-pip', 'git', virtualenv]
+        state: latest
+    
+    - name: Create virtualenv
+      pip:
+        requirements: /vagrant/requirements.txt
+        virtualenv: /home/vagrant/venv
+        virtualenv_python: /usr/bin/python3
+
+    - name: Activate virtualenv on SSH sessions
+      lineinfile:
+        path: /home/vagrant/.bashrc
+        line: source /home/vagrant/venv/bin/activate
+        create: yes
