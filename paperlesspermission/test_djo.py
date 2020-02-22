@@ -151,3 +151,50 @@ class DJOImportTestCase(TestCase):
                               notify_cell=False,
                               hidden=False)
         self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
+
+    def test_faculty_import_hidden(self):
+        """Test that hidden is set on deleted faculty members."""
+
+        # Initial import - test that faculty1004 exists
+        importer = DJOImport(self.fs_classes,
+                             self.fs_faculty,
+                             self.fs_student,
+                             self.fs_parent,
+                             self.fs_enrollment)
+        importer.import_faculty()
+
+        faculty1004 = Faculty(person_id='1004',
+                              first_name='Andy',
+                              last_name='Battern',
+                              email='abattern@school.test',
+                              preferred_name='Mr. Battern',
+                              notify_cell=False,
+                              hidden=False)
+        self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
+
+        # Remove faculty 1004
+        self.fs_faculty = BytesIO(
+            b'RECORDID\tFIRST_NAME\tLAST_NAME\tEMAIL_ADDR\tPREFERREDNAME\n'
+            + b'1001\tJohn\tDoe\tjdoe@school.test\tDr. Doe\n'
+            + b'1002\tAlice\tHartman\tahartman@school.test\tMs. Hartman\n'
+            + b'1003\tDoug\tAteman\tdateman@school.test\tMr. Ateman\n'
+            # + b'1004\tAndy\tBattern\tabattern@school.test\tMr. Battern\n'
+        )
+
+        # Second import - test that faculty1004 still exists and has hidden
+        # flag set
+        importer = DJOImport(self.fs_classes,
+                             self.fs_faculty,
+                             self.fs_student,
+                             self.fs_parent,
+                             self.fs_enrollment)
+        importer.import_faculty()
+
+        faculty1004 = Faculty(person_id='1004',
+                              first_name='Andy',
+                              last_name='Battern',
+                              email='abattern@school.test',
+                              preferred_name='Mr. Battern',
+                              notify_cell=False,
+                              hidden=True)
+        self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
