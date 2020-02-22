@@ -68,18 +68,25 @@ class DJOImportTestCase(TestCase):
         self.fs_enrollment.close()
 
     def test_import_faculty(self):
-        """Tests to ensure that import_faculty() does not throw an exception."""
+        """Tests to ensure that import_faculty does not throw an exception."""
         try:
-            importer = DJOImport(self.fs_classes, self.fs_faculty,
-                                 self.fs_student, self.fs_parent, self.fs_enrollment)
+            importer = DJOImport(self.fs_classes,
+                                 self.fs_faculty,
+                                 self.fs_student,
+                                 self.fs_parent,
+                                 self.fs_enrollment)
             importer.import_faculty()
         except Exception:
             self.fail("DJOImport.import_faculty() did not successfully run.")
 
     def test_faculty_import_size(self):
-        """Tests to see if the faculty_import function returns the correct number of Faculty objects."""
-        importer = DJOImport(self.fs_classes, self.fs_faculty,
-                             self.fs_student, self.fs_parent, self.fs_enrollment)
+        """Tests to see if the faculty_import function returns the correct
+        number of Faculty objects."""
+        importer = DJOImport(self.fs_classes,
+                             self.fs_faculty,
+                             self.fs_student,
+                             self.fs_parent,
+                             self.fs_enrollment)
         importer.import_faculty()
 
         all_faculty = Faculty.objects.all()
@@ -88,9 +95,13 @@ class DJOImportTestCase(TestCase):
         self.assertEqual(size, 4, "")
 
     def test_faculty_contents_initial_hidden_value(self):
-        """Tests to ensure that hidden value is always false on first import."""
-        importer = DJOImport(self.fs_classes, self.fs_faculty,
-                             self.fs_student, self.fs_parent, self.fs_enrollment)
+        """Tests to ensure that hidden value is always false on first
+        import."""
+        importer = DJOImport(self.fs_classes,
+                             self.fs_faculty,
+                             self.fs_student,
+                             self.fs_parent,
+                             self.fs_enrollment)
         importer.import_faculty()
 
         for faculty_obj in Faculty.objects.all():
@@ -98,22 +109,45 @@ class DJOImportTestCase(TestCase):
 
     def test_faculty_object_contents(self):
         """Tests to ensure that the actual faculty objects are correct."""
-        importer = DJOImport(self.fs_classes, self.fs_faculty,
-                             self.fs_student, self.fs_parent, self.fs_enrollment)
+        importer = DJOImport(self.fs_classes,
+                             self.fs_faculty,
+                             self.fs_student,
+                             self.fs_parent,
+                             self.fs_enrollment)
         importer.import_faculty()
 
-        faculty1001 = Faculty(person_id='1001', first_name='John', last_name='Doe',
-                              email='jdoe@school.test', preferred_name='Dr. Doe', notify_cell=False, hidden=False)
+        faculty1001 = Faculty(person_id='1001',
+                              first_name='John',
+                              last_name='Doe',
+                              email='jdoe@school.test',
+                              preferred_name='Dr. Doe',
+                              notify_cell=False,
+                              hidden=False)
         self.assertEqual(Faculty.objects.get(person_id='1001'), faculty1001)
 
-        faculty1002 = Faculty(person_id='1002', first_name='Alice', last_name='Hartman',
-                              email='ahartman@school.test', preferred_name='Ms. Hartman', notify_cell=False, hidden=False)
+        faculty1002 = Faculty(person_id='1002',
+                              first_name='Alice',
+                              last_name='Hartman',
+                              email='ahartman@school.test',
+                              preferred_name='Ms. Hartman',
+                              notify_cell=False,
+                              hidden=False)
         self.assertEqual(Faculty.objects.get(person_id='1002'), faculty1002)
 
-        faculty1003 = Faculty(person_id='1003', first_name='Doug', last_name='Ateman',
-                              email='dateman@school.test', preferred_name='Mr. Ateman', notify_cell=False, hidden=False)
+        faculty1003 = Faculty(person_id='1003',
+                              first_name='Doug',
+                              last_name='Ateman',
+                              email='dateman@school.test',
+                              preferred_name='Mr. Ateman',
+                              notify_cell=False,
+                              hidden=False)
         self.assertEqual(Faculty.objects.get(person_id='1003'), faculty1003)
 
-        faculty1004 = Faculty(person_id='1004', first_name='Andy', last_name='Battern',
-                              email='abattern@school.test', preferred_name='Mr. Battern', notify_cell=False, hidden=False)
+        faculty1004 = Faculty(person_id='1004',
+                              first_name='Andy',
+                              last_name='Battern',
+                              email='abattern@school.test',
+                              preferred_name='Mr. Battern',
+                              notify_cell=False,
+                              hidden=False)
         self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)

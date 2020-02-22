@@ -1,6 +1,7 @@
 """Defines all of the data models used in the application.
 
-This file is used to define all of the data models used by Paperless Permission.
+This file is used to define all of the data models used by Paperless
+Permission.
 """
 
 from django.db import models
@@ -36,20 +37,29 @@ class Person(models.Model):
     def __eq__(self, other):
         if not isinstance(other, Person):
             return NotImplemented
-        value = (self.person_id == other.person_id) and (self.first_name == other.first_name) and (self.last_name == other.last_name) and (
-            self.email == other.email) and (self.cell_number == other.cell_number) and (self.notify_cell == other.notify_cell) and (self.hidden == other.hidden)
+        value = (self.person_id == other.person_id and
+                 self.first_name == other.first_name and
+                 self.last_name == other.last_name and
+                 self.email == other.email and
+                 self.cell_number == other.cell_number and
+                 self.notify_cell == other.notify_cell and
+                 self.hidden == other.hidden)
         return value
+        return (super().__eq__(other) and
+                self.preferred_name == other.preferred_name)
 
 
 class Guardian(Person):
     """Defines a student's parent/guardian.
 
-    Extends the `Person` class. In practice these end up being Mothers, Fathers,
-    Grandparents, or other legal custodians.
+    Extends the `Person` class. In practice these end up being Mothers,
+    Fathers, Grandparents, or other legal custodians.
 
     Attributes:
-        relationship (CharField): The relationship of the Guardian to the Student
-        students (ManyToManyField): All of the students the guardian is related to
+        relationship (CharField): The relationship of the Guardian to the
+            Student
+        students (ManyToManyField): All of the students the guardian is
+            related to
     """
     relationship = models.CharField(max_length=30)
     students = models.ManyToManyField('Student')
@@ -62,7 +72,8 @@ class Student(Person):
 
     Attributes:
         grade_level (String): Student's grade level
-        guardians (ManyToManyField): All of the `Guardians` related to the Student
+        guardians (ManyToManyField): All of the `Guardians` related to the
+            Student
     """
     grade_level = models.CharField(max_length=30)
     guardians = models.ManyToManyField(Guardian)
@@ -72,7 +83,8 @@ class Faculty(Person):
     """Defines Faculty/Staff that will run field trips.
 
     Attributes:
-        preferred_name (CharField): Teachers might prefer to go by Mrs/Mr <last_name>
+        preferred_name (CharField): Teachers might prefer to go by Mrs/Mr
+            <last_name>
     """
     preferred_name = models.CharField(max_length=200)
 
@@ -80,7 +92,9 @@ class Faculty(Person):
         return self.preferred_name
 
     def __eq__(self, other):
-        return super().__eq__(other) and (self.preferred_name == other.preferred_name)
+        value = (super().__eq__(other) and
+                 self.preferred_name == other.preferred_name)
+        return value
 
 
 class Course(models.Model):
@@ -113,14 +127,19 @@ class Section(models.Model):
         school_year (CharField): School year the section is held in
         room (CharField): Room the section is held in
         period (CharField): Period the section is held during
-        hidden (BooleanField): Hides sections no longer present in upstream data
+        hidden (BooleanField): Hides sections no longer present in upstream
+            data
     """
     section_id = models.CharField(unique=True, max_length=30)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     section_number = models.CharField(unique=False, max_length=30)
     teacher = models.ForeignKey(Faculty, null=True, on_delete=models.SET_NULL)
     coteacher = models.ForeignKey(
-        Faculty, null=True, on_delete=models.SET_NULL, related_name='coteacher_set')
+        Faculty,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='coteacher_set'
+    )
     school_year = models.CharField(max_length=30)
     room = models.CharField(max_length=30)
     period = models.CharField(max_length=30)
@@ -142,8 +161,8 @@ class FieldTrip(models.Model):
             Trip
         faculty (ManyToManyField): All faculty/staff invited to administer the
             Field Trip
-        courses (ManyToManyField): Students enrolled in these courses during the
-            relevent school year/semester will automatically be invited to
+        courses (ManyToManyField): Students enrolled in these courses during
+            the relevent school year/semester will automatically be invited to
             attend this field trip
         sections (ManyToManyField): Students enrolled in these sections will
             automatically be invited to attend this field trip
