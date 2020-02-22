@@ -7,6 +7,12 @@ from paperlesspermission.djo import DJOImport
 
 
 class DJOImportTestCase(TestCase):
+    """Abstract class to test the DJOImport class.
+
+    To actually test a method of this class, subclass DJOImportTestCase. It
+    will inherit the setUp and tearDown methods.
+    """
+
     def setUp(self):
         self.fs_faculty = BytesIO(
             b'RECORDID\tFIRST_NAME\tLAST_NAME\tEMAIL_ADDR\tPREFERREDNAME\n'
@@ -66,6 +72,10 @@ class DJOImportTestCase(TestCase):
         self.fs_student.close()
         self.fs_parent.close()
         self.fs_enrollment.close()
+
+
+class ImportFacultyTests(DJOImportTestCase):
+    """Tests the import_faculty() method"""
 
     def test_import_faculty(self):
         """Tests to ensure that import_faculty does not throw an exception."""
