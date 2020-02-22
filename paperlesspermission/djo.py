@@ -29,8 +29,16 @@ class DJOImport():
         fs_enrollment (io.BytesIO): TSV file containing enrollment data
     """
 
-    def __init__(self, hostname, username, password, ssh_fingerprint):
-        """The constructor for `DJOImport` class.
+    def __init__(self, fs_classes, fs_faculty, fs_student, fs_parent, fs_enrollment):
+        self.fs_classes = fs_classes
+        self.fs_faculty = fs_faculty
+        self.fs_student = fs_student
+        self.fs_parent = fs_parent
+        self.fs_enrollment = fs_enrollment
+
+    @classmethod
+    def GetFromSFTP(cls, hostname, username, password, ssh_fingerprint):
+        """Constructor for `DJOImport` class that pull from remote SFTP server.
 
         This constructor takes SFTP connection information and pulls the TSV
         files needed to actually import data into the application.
@@ -75,11 +83,11 @@ class DJOImport():
         hostkeys = ssh_client.get_host_keys()
         hostkeys.add(hostname, 'ssh-rsa', key)
 
-        self.fs_classes = BytesIO()
-        self.fs_faculty = BytesIO()
-        self.fs_student = BytesIO()
-        self.fs_parent = BytesIO()
-        self.fs_enrollment = BytesIO()
+        fs_classes = BytesIO()
+        fs_faculty = BytesIO()
+        fs_student = BytesIO()
+        fs_parent = BytesIO()
+        fs_enrollment = BytesIO()
 
         try:
             ssh_client.connect(hostname, username=username,
@@ -87,11 +95,13 @@ class DJOImport():
             sftp_client = ssh_client.open_sftp()
             sftp_client.chdir('ps_data_export')
 
-            sftp_client.getfo('fs_classes.txt', self.fs_classes)
-            sftp_client.getfo('fs_faculty.txt', self.fs_faculty)
-            sftp_client.getfo('fs_student.txt', self.fs_student)
-            sftp_client.getfo('fs_parent.txt', self.fs_parent)
-            sftp_client.getfo('fs_enrollment.txt', self.fs_enrollment)
+            sftp_client.getfo('fs_classes.txt', fs_classes)
+            sftp_client.getfo('fs_faculty.txt', fs_faculty)
+            sftp_client.getfo('fs_student.txt', fs_student)
+            sftp_client.getfo('fs_parent.txt', fs_parent)
+            sftp_client.getfo('fs_enrollment.txt', fs_enrollment)
+
+            return cls(fs_classes, fs_faculty, fs_student, fs_parent, fs_enrollment)
         finally:
             ssh_client.close()
 

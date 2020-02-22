@@ -33,6 +33,13 @@ class Person(models.Model):
     def __str__(self):
         return ("%s %s" % self.first_name, self.last_name)
 
+    def __eq__(self, other):
+        if not isinstance(other, Person):
+            return NotImplemented
+        value = (self.person_id == other.person_id) and (self.first_name == other.first_name) and (self.last_name == other.last_name) and (
+            self.email == other.email) and (self.cell_number == other.cell_number) and (self.notify_cell == other.notify_cell) and (self.hidden == other.hidden)
+        return value
+
 
 class Guardian(Person):
     """Defines a student's parent/guardian.
@@ -71,6 +78,9 @@ class Faculty(Person):
 
     def __str__(self):
         return self.preferred_name
+
+    def __eq__(self, other):
+        return super().__eq__(other) and (self.preferred_name == other.preferred_name)
 
 
 class Course(models.Model):
