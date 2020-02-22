@@ -2,7 +2,7 @@
 
 from io import BytesIO
 from django.test import TestCase
-from paperlesspermission.models import Faculty
+from paperlesspermission.models import Faculty, Course, Section
 from paperlesspermission.djo import DJOImport
 
 
@@ -66,6 +66,12 @@ class DJOImportTestCase(TestCase):
             + b'6\t15131\n'
         )
 
+        self.importer = DJOImport(self.fs_classes,
+                                  self.fs_faculty,
+                                  self.fs_student,
+                                  self.fs_parent,
+                                  self.fs_enrollment)
+
     def tearDown(self):
         self.fs_faculty.close()
         self.fs_classes.close()
@@ -80,24 +86,14 @@ class ImportFacultyTests(DJOImportTestCase):
     def test_import_faculty(self):
         """Tests to ensure that import_faculty does not throw an exception."""
         try:
-            importer = DJOImport(self.fs_classes,
-                                 self.fs_faculty,
-                                 self.fs_student,
-                                 self.fs_parent,
-                                 self.fs_enrollment)
-            importer.import_faculty()
+            self.importer.import_faculty()
         except Exception:
             self.fail("DJOImport.import_faculty() did not successfully run.")
 
     def test_faculty_import_size(self):
         """Tests to see if the faculty_import function returns the correct
         number of Faculty objects."""
-        importer = DJOImport(self.fs_classes,
-                             self.fs_faculty,
-                             self.fs_student,
-                             self.fs_parent,
-                             self.fs_enrollment)
-        importer.import_faculty()
+        self.importer.import_faculty()
 
         all_faculty = Faculty.objects.all()
         size = len(all_faculty)
@@ -107,24 +103,14 @@ class ImportFacultyTests(DJOImportTestCase):
     def test_faculty_contents_initial_hidden_value(self):
         """Tests to ensure that hidden value is always false on first
         import."""
-        importer = DJOImport(self.fs_classes,
-                             self.fs_faculty,
-                             self.fs_student,
-                             self.fs_parent,
-                             self.fs_enrollment)
-        importer.import_faculty()
+        self.importer.import_faculty()
 
         for faculty_obj in Faculty.objects.all():
             self.assertFalse(faculty_obj.hidden)
 
     def test_faculty_object_contents(self):
         """Tests to ensure that the actual faculty objects are correct."""
-        importer = DJOImport(self.fs_classes,
-                             self.fs_faculty,
-                             self.fs_student,
-                             self.fs_parent,
-                             self.fs_enrollment)
-        importer.import_faculty()
+        self.importer.import_faculty()
 
         faculty1001 = Faculty(person_id='1001',
                               first_name='John',
@@ -166,12 +152,7 @@ class ImportFacultyTests(DJOImportTestCase):
         """Test that hidden is set on deleted faculty members."""
 
         # Initial import - test that faculty1004 exists
-        importer = DJOImport(self.fs_classes,
-                             self.fs_faculty,
-                             self.fs_student,
-                             self.fs_parent,
-                             self.fs_enrollment)
-        importer.import_faculty()
+        self.importer.import_faculty()
 
         faculty1004 = Faculty(person_id='1004',
                               first_name='Andy',
@@ -193,12 +174,12 @@ class ImportFacultyTests(DJOImportTestCase):
 
         # Second import - test that faculty1004 still exists and has hidden
         # flag set
-        importer = DJOImport(self.fs_classes,
-                             self.fs_faculty,
-                             self.fs_student,
-                             self.fs_parent,
-                             self.fs_enrollment)
-        importer.import_faculty()
+        self.importer = DJOImport(self.fs_classes,
+                                  self.fs_faculty,
+                                  self.fs_student,
+                                  self.fs_parent,
+                                  self.fs_enrollment)
+        self.importer.import_faculty()
 
         faculty1004 = Faculty(person_id='1004',
                               first_name='Andy',
@@ -208,3 +189,38 @@ class ImportFacultyTests(DJOImportTestCase):
                               notify_cell=False,
                               hidden=True)
         self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
+
+
+class ImportClassesTest(DJOImportTestCase):
+    """Test the import_classes() method."""
+
+    def test_import_classes(self):
+        """Tests to see if import_classes runs without exception."""
+        try:
+            # Faculty must be imported first
+            self.importer.import_faculty()
+            self.importer.import_classes()
+        except Exception:
+            self.fail("DJOImport.import_classes() did not successfully run.")
+
+    def test_import_classes_courses_size(self):
+        """Tests to see if the import_classes function returns the correct
+        number of course objects."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        all_courses = Course.objects.all()
+        size = len(all_courses)
+
+        self.assertEqual(size, 3, "")
+
+    def test_import_classes_sections_size(self):
+        """Tests to see if the import_classes function returns the correct
+        number of section objects."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        all_sections = Section.objects.all()
+        size = len(all_sections)
+
+        self.assertEqual(size, 4, "")
