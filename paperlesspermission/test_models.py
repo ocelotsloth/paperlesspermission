@@ -44,6 +44,6 @@ class FacultyTests(TestCase):
                               cell_number='757-555-5555', notify_cell=False, hidden=False, preferred_name='a b')
         value_not_equal_preferred_name = Faculty(person_id='1', first_name='a', last_name='b', email='a@a.test',
                                                  cell_number='757-555-5555', notify_cell=False, hidden=False, preferred_name='f z')
-        
+
         self.assertEqual(test, value_equal)
         self.assertNotEqual(test, value_not_equal_preferred_name)
