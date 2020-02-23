@@ -112,56 +112,44 @@ class ImportFacultyTests(DJOImportTestCase):
         """Tests to ensure that the actual faculty objects are correct."""
         self.importer.import_faculty()
 
-        faculty1001 = Faculty(person_id='1001',
-                              first_name='John',
-                              last_name='Doe',
-                              email='jdoe@school.test',
-                              preferred_name='Dr. Doe',
-                              notify_cell=False,
-                              hidden=False)
-        self.assertEqual(Faculty.objects.get(person_id='1001'), faculty1001)
+        value_faculty = Faculty.objects.get(person_id='1001')
+        self.assertEqual(value_faculty.first_name, 'John')
+        self.assertEqual(value_faculty.last_name, 'Doe')
+        self.assertEqual(value_faculty.email, 'jdoe@school.test')
+        self.assertEqual(value_faculty.preferred_name, 'Dr. Doe')
+        self.assertEqual(value_faculty.notify_cell, False)
+        self.assertEqual(value_faculty.hidden, False)
 
-        faculty1002 = Faculty(person_id='1002',
-                              first_name='Alice',
-                              last_name='Hartman',
-                              email='ahartman@school.test',
-                              preferred_name='Ms. Hartman',
-                              notify_cell=False,
-                              hidden=False)
-        self.assertEqual(Faculty.objects.get(person_id='1002'), faculty1002)
+        value_faculty = Faculty.objects.get(person_id='1002')
+        self.assertEqual(value_faculty.first_name, 'Alice')
+        self.assertEqual(value_faculty.last_name, 'Hartman')
+        self.assertEqual(value_faculty.email, 'ahartman@school.test')
+        self.assertEqual(value_faculty.preferred_name, 'Ms. Hartman')
+        self.assertEqual(value_faculty.notify_cell, False)
+        self.assertEqual(value_faculty.hidden, False)
 
-        faculty1003 = Faculty(person_id='1003',
-                              first_name='Doug',
-                              last_name='Ateman',
-                              email='dateman@school.test',
-                              preferred_name='Mr. Ateman',
-                              notify_cell=False,
-                              hidden=False)
-        self.assertEqual(Faculty.objects.get(person_id='1003'), faculty1003)
+        value_faculty = Faculty.objects.get(person_id='1003')
+        self.assertEqual(value_faculty.first_name, 'Doug')
+        self.assertEqual(value_faculty.last_name, 'Ateman')
+        self.assertEqual(value_faculty.email, 'dateman@school.test')
+        self.assertEqual(value_faculty.preferred_name, 'Mr. Ateman')
+        self.assertEqual(value_faculty.notify_cell, False)
+        self.assertEqual(value_faculty.hidden, False)
 
-        faculty1004 = Faculty(person_id='1004',
-                              first_name='Andy',
-                              last_name='Battern',
-                              email='abattern@school.test',
-                              preferred_name='Mr. Battern',
-                              notify_cell=False,
-                              hidden=False)
-        self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
+        value_faculty = Faculty.objects.get(person_id='1004')
+        self.assertEqual(value_faculty.first_name, 'Andy')
+        self.assertEqual(value_faculty.last_name, 'Battern')
+        self.assertEqual(value_faculty.email, 'abattern@school.test')
+        self.assertEqual(value_faculty.preferred_name, 'Mr. Battern')
+        self.assertEqual(value_faculty.notify_cell, False)
+        self.assertEqual(value_faculty.hidden, False)
 
     def test_faculty_import_hidden(self):
         """Test that hidden is set on deleted faculty members."""
 
         # Initial import - test that faculty1004 exists
         self.importer.import_faculty()
-
-        faculty1004 = Faculty(person_id='1004',
-                              first_name='Andy',
-                              last_name='Battern',
-                              email='abattern@school.test',
-                              preferred_name='Mr. Battern',
-                              notify_cell=False,
-                              hidden=False)
-        self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
+        self.assertFalse(Faculty.objects.get(person_id='1004').hidden)
 
         # Remove faculty 1004
         self.fs_faculty = BytesIO(
@@ -180,15 +168,7 @@ class ImportFacultyTests(DJOImportTestCase):
                                   self.fs_parent,
                                   self.fs_enrollment)
         self.importer.import_faculty()
-
-        faculty1004 = Faculty(person_id='1004',
-                              first_name='Andy',
-                              last_name='Battern',
-                              email='abattern@school.test',
-                              preferred_name='Mr. Battern',
-                              notify_cell=False,
-                              hidden=True)
-        self.assertEqual(Faculty.objects.get(person_id='1004'), faculty1004)
+        self.assertTrue(Faculty.objects.get(person_id='1004').hidden)
 
 
 class ImportClassesTest(DJOImportTestCase):
@@ -214,6 +194,34 @@ class ImportClassesTest(DJOImportTestCase):
 
         self.assertEqual(size, 3, "")
 
+    def test_import_classes_courses_initial_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the courses objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        for course_obj in Course.objects.all():
+            self.assertFalse(course_obj.hidden)
+
+    def test_import_classes_courses_deleted_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the courses objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        # Delete the spelling course
+        self.importer.fs_classes = BytesIO(
+            b'RECORDID\tCOURSE_NUMBER\tSECTION_NUMBER\tTERMID\tSCHOOLYEAR\tTEACHER\tROOM\tCOURSE_NAME\tEXPRESSION\tCOTEACHER\n'
+            # + b'15110\t0001\t1\t1901\t2019-2020\t1001\t124\tSpelling\t7(A1-B1,A3)\t\n'
+            + b'15121\t0002\t1\t1901\tSemester 1\t1002\t231\tEnglish 1\t3(A1-B1,A3)\t\n'
+            + b'15122\t0002\t2\t1901\tSemester 1\t1003\t233\tEnglish 1\t3(A1-B1,A3)\t\n'
+            + b'15131\t0003\t1\t1901\t2019-2020\t1004\tGym\tPE\t3(A1-B1,A3)\t1001\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        self.assertTrue(Course.objects.get(course_number='0001').hidden)
+
     def test_import_classes_sections_size(self):
         """Tests to see if the import_classes function returns the correct
         number of section objects."""
@@ -224,3 +232,32 @@ class ImportClassesTest(DJOImportTestCase):
         size = len(all_sections)
 
         self.assertEqual(size, 4, "")
+
+    def test_import_classes_sections_initial_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the sections objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        for section_obj in Section.objects.all():
+            self.assertFalse(section_obj.hidden)
+
+    def test_import_classes_sections_deleted_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the sections objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        # Delete section 2 of English 1
+        self.importer.fs_classes = BytesIO(
+            b'RECORDID\tCOURSE_NUMBER\tSECTION_NUMBER\tTERMID\tSCHOOLYEAR\tTEACHER\tROOM\tCOURSE_NAME\tEXPRESSION\tCOTEACHER\n'
+            + b'15110\t0001\t1\t1901\t2019-2020\t1001\t124\tSpelling\t7(A1-B1,A3)\t\n'
+            + b'15121\t0002\t1\t1901\tSemester 1\t1002\t231\tEnglish 1\t3(A1-B1,A3)\t\n'
+            # + b'15122\t0002\t2\t1901\tSemester 1\t1003\t233\tEnglish 1\t3(A1-B1,A3)\t\n'
+            + b'15131\t0003\t1\t1901\t2019-2020\t1004\tGym\tPE\t3(A1-B1,A3)\t1001\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+
+        self.assertTrue(Section.objects.get(section_id='15122').hidden)
+

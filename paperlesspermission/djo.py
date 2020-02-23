@@ -91,7 +91,8 @@ class DJOImport():
 
         try:
             ssh_client.connect(hostname, username=username,
-                               password=password, look_for_keys=False, allow_agent=False)
+                               password=password, look_for_keys=False,
+                               allow_agent=False)
             sftp_client = ssh_client.open_sftp()
             sftp_client.chdir('ps_data_export')
 
@@ -101,7 +102,8 @@ class DJOImport():
             sftp_client.getfo('fs_parent.txt', fs_parent)
             sftp_client.getfo('fs_enrollment.txt', fs_enrollment)
 
-            return cls(fs_classes, fs_faculty, fs_student, fs_parent, fs_enrollment)
+            return cls(fs_classes, fs_faculty, fs_student, fs_parent,
+                       fs_enrollment)
         finally:
             ssh_client.close()
 
@@ -141,8 +143,8 @@ class DJOImport():
                 written_ids.append(row['RECORDID'])
 
         # If we didn't see any given Faculty IDs when running this import, set
-        # their `hidden` value to `False`. This will hide their information from
-        # certain sections of the UI while retaining historical records.
+        # their `hidden` value to `False`. This will hide their information
+        # from certain sections of the UI while retaining historical records.
         for record in Faculty.objects.all():
             if record.person_id not in written_ids:
                 record.hidden = True
@@ -166,9 +168,10 @@ class DJOImport():
           - Once the `Course` is taken care of we can then add the Section.
 
         Just like every other import, we'll need to keep track of each Course
-        and Section ID that we find. Once finished importing the data we need to
-        run through all the existing Courses and Sections to set the hidden flag
-        on any records that have been deleted from the upstream data source.
+        and Section ID that we find. Once finished importing the data we need
+        to run through all the existing Courses and Sections to set the hidden
+        flag on any records that have been deleted from the upstream data
+        source.
         """
 
         classes_reader = bytes_io_to_tsv_dict_reader(self.fs_classes)

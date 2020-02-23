@@ -32,7 +32,7 @@ class Person(models.Model):
         abstract = True
 
     def __str__(self):
-        return ("%s %s" % self.first_name, self.last_name)
+        return ('{0} {1}'.format(self.first_name, self.last_name))
 
     def __eq__(self, other):
         if not isinstance(other, Person):
@@ -62,7 +62,13 @@ class Guardian(Person):
             related to
     """
     relationship = models.CharField(max_length=30)
-    students = models.ManyToManyField('Student')
+
+    def __eq__(self, other):
+        if not isinstance(other, Student):
+            return NotImplemented
+        value = (super().__eq__(other)
+                 and self.relationship == self.relationship)
+        return value
 
 
 class Student(Person):
@@ -78,6 +84,14 @@ class Student(Person):
     grade_level = models.CharField(max_length=30)
     guardians = models.ManyToManyField(Guardian)
 
+    def __eq__(self, other):
+        if not isinstance(other, Student):
+            return NotImplemented
+        value = (super().__eq__(other)
+                 and self.grade_level == other.grade_level
+                 and list(self.guardians.all()) == list(other.guardians.all()))
+        return value
+
 
 class Faculty(Person):
     """Defines Faculty/Staff that will run field trips.
@@ -92,6 +106,8 @@ class Faculty(Person):
         return self.preferred_name
 
     def __eq__(self, other):
+        if not isinstance(other, Faculty):
+            return NotImplemented
         value = (super().__eq__(other) and
                  self.preferred_name == other.preferred_name)
         return value
@@ -113,6 +129,14 @@ class Course(models.Model):
 
     def __str__(self):
         return self.course_name
+
+    def __eq__(self, other):
+        if not isinstance(other, Course):
+            return NotImplemented
+        value = ((self.course_number == other.course_number) and
+                 (self.course_name == other.course_name) and
+                 (self.hidden == other.hidden))
+        return value
 
 
 class Section(models.Model):
