@@ -2,7 +2,7 @@
 
 from io import BytesIO
 from django.test import TestCase
-from paperlesspermission.models import Faculty, Course, Section
+from paperlesspermission.models import Faculty, Course, Section, Student, Guardian
 from paperlesspermission.djo import DJOImport
 
 
@@ -95,10 +95,7 @@ class ImportFacultyTests(DJOImportTestCase):
         number of Faculty objects."""
         self.importer.import_faculty()
 
-        all_faculty = Faculty.objects.all()
-        size = len(all_faculty)
-
-        self.assertEqual(size, 4, "")
+        self.assertEqual(Faculty.objects.count(), 4)
 
     def test_faculty_contents_initial_hidden_value(self):
         """Tests to ensure that hidden value is always false on first
@@ -189,10 +186,7 @@ class ImportClassesTest(DJOImportTestCase):
         self.importer.import_faculty()
         self.importer.import_classes()
 
-        all_courses = Course.objects.all()
-        size = len(all_courses)
-
-        self.assertEqual(size, 3, "")
+        self.assertEqual(Course.objects.count(), 3)
 
     def test_import_classes_courses_initial_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
@@ -228,10 +222,7 @@ class ImportClassesTest(DJOImportTestCase):
         self.importer.import_faculty()
         self.importer.import_classes()
 
-        all_sections = Section.objects.all()
-        size = len(all_sections)
-
-        self.assertEqual(size, 4, "")
+        self.assertEqual(Section.objects.count(), 4)
 
     def test_import_classes_sections_initial_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
@@ -261,3 +252,177 @@ class ImportClassesTest(DJOImportTestCase):
 
         self.assertTrue(Section.objects.get(section_id='15122').hidden)
 
+
+class ImportStudentsTest(DJOImportTestCase):
+    def test_import_students(self):
+        """Test that the import function actually runs."""
+        try:
+            self.importer.import_faculty()
+            self.importer.import_classes()
+            self.importer.import_students()
+        except Exception:
+            self.fail("DJOImport.import_classes() did not successfully run.")
+
+    def test_import_students_size(self):
+        """Tests to see if the import_students function returns the correct
+        number of student objects."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+
+        self.assertEqual(Student.objects.count(), 6)
+
+    def test_import_students_initial_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the sections objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+
+        for student_obj in Student.objects.all():
+            self.assertFalse(student_obj.hidden)
+
+    def test_import_students_deleted_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the sections objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+
+        # Delete student 4
+        self.importer.fs_student = BytesIO(
+            b'RECORDID\tGRADE_LEVEL\tFIRST_NAME\tLAST_NAME\tEMAIL\n'
+            + b'1\t10\tAbe\tTesco\t20atesco1@school.test\n'
+            + b'2\t10\tTessa\tAdelede\t20tadelede2@school.test\n'
+            + b'3\t11\tMatt\tTesco\t19mtesco3@school.test\n'
+            # + b'4\t11\tAdam\tHun\t19ahun4@school.test\n'
+            + b'5\t12\tMary\tWalters\t18mwalters5@school.test\n'
+            + b'6\t12\tTaylor\tJohnston\t18tjohnston6@school.test\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+
+        self.assertTrue(Student.objects.get(person_id='4').hidden)
+
+
+class ImportGuardiansTest(DJOImportTestCase):
+    def test_import_guardians(self):
+        """Test that the import function actually runs."""
+        try:
+            self.importer.import_faculty()
+            self.importer.import_classes()
+            self.importer.import_students()
+            self.importer.import_guardians()
+        except Exception:
+            self.fail("DJOImport.import_guardians() did not successfully run.")
+
+    def test_import_students_size(self):
+        """Tests to see if the import_students function returns the correct
+        number of student objects."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+
+        self.assertEqual(Guardian.objects.count(), 8)
+
+    def test_import_students_initial_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the sections objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+
+        for guardian_obj in Guardian.objects.all():
+            self.assertFalse(guardian_obj.hidden)
+
+    def test_import_students_deleted_hidden_value(self):
+        """Tests to see if the import_classes functions initially sets the hiddden
+        attribute on the sections objects to False."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+
+        # Delete parent 98 (student 6's sole parent)
+        self.importer.fs_parent = BytesIO(
+            b'STUDENT_NUMBER\tCNT1_ID\tCNT1_FNAME\tCNT1_LNAME\tCNT1_REL\tCNT1_CPHONE\tCNT1_EMAIL\tCNT2_ID\tCNT2_FNAME\tCNT2_LNAME\tCNT2_REL\tCNT2_CPHONE\tCNT2_EMAIL\tCNT3_ID\tCNT3_FNAME\tCNT3_LNAME\tCNT3_REL\tCNT3_CPHONE\tCNT3_EMAIL\n'
+            + b'1\t91\tJupiter\tTesco\tMother\t703-555-1111\tjtesco@gmail.test\t92\tAdam\tTesco\tFather\t703-555-2222\tate@gmail.test\t\t\t\t\t\t\n'
+            + b'2\t93\tGarv\tCallis\tFather\t701-555-3333\tgcallis0@email.test\t94\tKarla\tCallis\tMother\t\tkcallis@gmail.test\t95\tDukey\tMacConal\tGrandparent\t201-555-6666\tdmacconnal5@sun.test\n'
+            + b'3\t91\tJupiter\tTesco\tMother\t703-555-1111\tjtesco@gmail.test\t92\tAdam\tTesco\tFather\t703-555-2222\tate@gmail.test\t\t\t\t\t\t\n'
+            + b'4\t96\tAlford\tLordon\tFather\t843-444-3222\talorton@gmail.test\t\t\t\t\t\t\t\t\t\t\t\t\n'
+            + b'5\t97\tBax\tKimm\tFather\t433-555-5555\tbkimm@gmail.test\t\t\t\t\t\t\t\t\t\t\t\t\n'
+            # + b'6\t98\tLulu\tMcMennum\tMother\t323-555-2222\tlmcmennum@gmail.test\t\t\t\t\t\t\t\t\t\t\t\t\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+
+        self.assertTrue(Guardian.objects.get(person_id='98').hidden)
+
+
+class ImportEnrollmentTest(DJOImportTestCase):
+    def test_import_enrollment(self):
+        """Test that the import function actually runs."""
+        try:
+            self.importer.import_faculty()
+            self.importer.import_classes()
+            self.importer.import_students()
+            self.importer.import_guardians()
+            self.importer.import_enrollment()
+        except Exception:
+            self.fail("DJOImport.import_enrollment() did not successfully run.")
+
+    def test_import_enrollment_size(self):
+        """Tests to see if the import_enrollment function returns the correct
+        number of enrollment objects."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+        self.importer.import_enrollment()
+
+        self.assertEqual(Section.students.through.objects.count(), 12)
+
+    def test_import_enrollment_deleted_value(self):
+        """Tests to see if the import_enrollment function deletes enrollment that
+        is removed from upstream."""
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+        self.importer.import_enrollment()
+
+        # Ensure it exists before being deleted
+        self.assertTrue(Section.objects.get(section_id='15122')
+                                       .students.filter(person_id='2')
+                                       .exists())
+
+        # Delete student 2's enrollment with section 15122
+        self.importer.fs_enrollment = BytesIO(
+            b'STUDENT_NUMBER\tSECTIONID\n'
+            + b'1\t15110\n'
+            + b'1\t15121\n'
+            + b'1\t15131\n'
+            + b'2\t15110\n'
+            # + b'2\t15122\n'
+            + b'3\t15110\n'
+            + b'4\t15110\n'
+            + b'4\t15122\n'
+            + b'4\t15131\n'
+            + b'5\t15131\n'
+            + b'5\t15110\n'
+            + b'6\t15131\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+        self.importer.import_enrollment()
+
+        self.assertFalse(Section.objects.get(section_id='15122')
+                                        .students.filter(person_id='2')
+                                        .exists())

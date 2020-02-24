@@ -374,6 +374,11 @@ class DJOImport():
                     person_id=row['STUDENT_NUMBER']))
                 guardian.save()
 
+        for guardian in Guardian.objects.all():
+            if guardian.person_id not in written_guardians:
+                guardian.hidden = True
+                guardian.save()
+
     def import_enrollment(self):
         """Parses all student enrollment data.
 
@@ -397,7 +402,7 @@ class DJOImport():
                     students_not_found.append(row['STUDENT_NUMBER'])
                     print('Student: {0} does not exist!'.format(
                         row['STUDENT_NUMBER']))
-        print(students_not_found)
+        return students_not_found
 
     def import_all(self):
         """Runs all of the import functions in the correct order."""

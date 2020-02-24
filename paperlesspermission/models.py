@@ -62,13 +62,7 @@ class Guardian(Person):
             related to
     """
     relationship = models.CharField(max_length=30)
-
-    def __eq__(self, other):
-        if not isinstance(other, Student):
-            return NotImplemented
-        value = (super().__eq__(other)
-                 and self.relationship == self.relationship)
-        return value
+    students = models.ManyToManyField('Student')
 
 
 class Student(Person):
@@ -82,15 +76,6 @@ class Student(Person):
             Student
     """
     grade_level = models.CharField(max_length=30)
-    guardians = models.ManyToManyField(Guardian)
-
-    def __eq__(self, other):
-        if not isinstance(other, Student):
-            return NotImplemented
-        value = (super().__eq__(other)
-                 and self.grade_level == other.grade_level
-                 and list(self.guardians.all()) == list(other.guardians.all()))
-        return value
 
 
 class Faculty(Person):
@@ -104,13 +89,6 @@ class Faculty(Person):
 
     def __str__(self):
         return self.preferred_name
-
-    def __eq__(self, other):
-        if not isinstance(other, Faculty):
-            return NotImplemented
-        value = (super().__eq__(other) and
-                 self.preferred_name == other.preferred_name)
-        return value
 
 
 class Course(models.Model):
@@ -129,14 +107,6 @@ class Course(models.Model):
 
     def __str__(self):
         return self.course_name
-
-    def __eq__(self, other):
-        if not isinstance(other, Course):
-            return NotImplemented
-        value = ((self.course_number == other.course_number) and
-                 (self.course_name == other.course_name) and
-                 (self.hidden == other.hidden))
-        return value
 
 
 class Section(models.Model):
