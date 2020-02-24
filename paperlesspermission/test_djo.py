@@ -426,3 +426,24 @@ class ImportEnrollmentTest(DJOImportTestCase):
         self.assertFalse(Section.objects.get(section_id='15122')
                                         .students.filter(person_id='2')
                                         .exists())
+
+
+class ImportAllTests(DJOImportTestCase):
+    def test_import_all(self):
+        """Ensure import_all() actually runs."""
+        try:
+            self.importer.import_all()
+        except Exception:
+            self.fail("DJOImport.import_all() did not successfully run.")
+
+    def test_with_obj_use(self):
+        """Ensure the __enter__/__exit__ functions work."""
+        try:
+            with DJOImport(self.fs_classes,
+                           self.fs_faculty,
+                           self.fs_student,
+                           self.fs_parent,
+                           self.fs_enrollment) as importer:
+                importer.import_all()
+        except Exception:
+            self.fail("With syntax did not successfully run.")
