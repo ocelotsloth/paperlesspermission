@@ -167,6 +167,24 @@ class ImportFacultyTests(DJOImportTestCase):
         self.importer.import_faculty()
         self.assertTrue(Faculty.objects.get(person_id='1004').hidden)
 
+        # Add faculty 1004 back
+        self.fs_faculty = BytesIO(
+            b'RECORDID\tFIRST_NAME\tLAST_NAME\tEMAIL_ADDR\tPREFERREDNAME\n'
+            + b'1001\tJohn\tDoe\tjdoe@school.test\tDr. Doe\n'
+            + b'1002\tAlice\tHartman\tahartman@school.test\tMs. Hartman\n'
+            + b'1003\tDoug\tAteman\tdateman@school.test\tMr. Ateman\n'
+            + b'1004\tAndy\tBattern\tabattern@school.test\tMr. Battern\n'
+        )
+        # Third import - test that faculty1004 has its hidden flag removed when
+        # added back into the data set.
+        self.importer = DJOImport(self.fs_classes,
+                                  self.fs_faculty,
+                                  self.fs_student,
+                                  self.fs_parent,
+                                  self.fs_enrollment)
+        self.importer.import_faculty()
+        self.assertFalse(Faculty.objects.get(person_id='1004').hidden)
+
 
 class ImportClassesTest(DJOImportTestCase):
     """Test the import_classes() method."""
@@ -289,6 +307,9 @@ class ImportStudentsTest(DJOImportTestCase):
         self.importer.import_classes()
         self.importer.import_students()
 
+        # First test: ensure that hidden flag is set to false
+        self.assertFalse(Student.objects.get(person_id='4').hidden)
+
         # Delete student 4
         self.importer.fs_student = BytesIO(
             b'RECORDID\tGRADE_LEVEL\tFIRST_NAME\tLAST_NAME\tEMAIL\n'
@@ -303,7 +324,25 @@ class ImportStudentsTest(DJOImportTestCase):
         self.importer.import_classes()
         self.importer.import_students()
 
+        # Second test: ensure that hidden flag is set to true
         self.assertTrue(Student.objects.get(person_id='4').hidden)
+
+        # Add student 4 back
+        self.importer.fs_student = BytesIO(
+            b'RECORDID\tGRADE_LEVEL\tFIRST_NAME\tLAST_NAME\tEMAIL\n'
+            + b'1\t10\tAbe\tTesco\t20atesco1@school.test\n'
+            + b'2\t10\tTessa\tAdelede\t20tadelede2@school.test\n'
+            + b'3\t11\tMatt\tTesco\t19mtesco3@school.test\n'
+            + b'4\t11\tAdam\tHun\t19ahun4@school.test\n'
+            + b'5\t12\tMary\tWalters\t18mwalters5@school.test\n'
+            + b'6\t12\tTaylor\tJohnston\t18tjohnston6@school.test\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+
+        # Third test: ensure that hidden flag is set to false again
+        self.assertFalse(Student.objects.get(person_id='4').hidden)
 
 
 class ImportGuardiansTest(DJOImportTestCase):
@@ -346,6 +385,9 @@ class ImportGuardiansTest(DJOImportTestCase):
         self.importer.import_students()
         self.importer.import_guardians()
 
+        # First test: ensure that parent's hidden value set to false
+        self.assertFalse(Guardian.objects.get(person_id='98').hidden)
+
         # Delete parent 98 (student 6's sole parent)
         self.importer.fs_parent = BytesIO(
             b'STUDENT_NUMBER\tCNT1_ID\tCNT1_FNAME\tCNT1_LNAME\tCNT1_REL\tCNT1_CPHONE\tCNT1_EMAIL\tCNT2_ID\tCNT2_FNAME\tCNT2_LNAME\tCNT2_REL\tCNT2_CPHONE\tCNT2_EMAIL\tCNT3_ID\tCNT3_FNAME\tCNT3_LNAME\tCNT3_REL\tCNT3_CPHONE\tCNT3_EMAIL\n'
@@ -361,7 +403,26 @@ class ImportGuardiansTest(DJOImportTestCase):
         self.importer.import_students()
         self.importer.import_guardians()
 
+        # Second test: ensure hidden flag set on deleted parent
         self.assertTrue(Guardian.objects.get(person_id='98').hidden)
+
+        # Add parent 98 (student 6's sole parent) back into the database
+        self.importer.fs_parent = BytesIO(
+            b'STUDENT_NUMBER\tCNT1_ID\tCNT1_FNAME\tCNT1_LNAME\tCNT1_REL\tCNT1_CPHONE\tCNT1_EMAIL\tCNT2_ID\tCNT2_FNAME\tCNT2_LNAME\tCNT2_REL\tCNT2_CPHONE\tCNT2_EMAIL\tCNT3_ID\tCNT3_FNAME\tCNT3_LNAME\tCNT3_REL\tCNT3_CPHONE\tCNT3_EMAIL\n'
+            + b'1\t91\tJupiter\tTesco\tMother\t703-555-1111\tjtesco@gmail.test\t92\tAdam\tTesco\tFather\t703-555-2222\tate@gmail.test\t\t\t\t\t\t\n'
+            + b'2\t93\tGarv\tCallis\tFather\t701-555-3333\tgcallis0@email.test\t94\tKarla\tCallis\tMother\t\tkcallis@gmail.test\t95\tDukey\tMacConal\tGrandparent\t201-555-6666\tdmacconnal5@sun.test\n'
+            + b'3\t91\tJupiter\tTesco\tMother\t703-555-1111\tjtesco@gmail.test\t92\tAdam\tTesco\tFather\t703-555-2222\tate@gmail.test\t\t\t\t\t\t\n'
+            + b'4\t96\tAlford\tLordon\tFather\t843-444-3222\talorton@gmail.test\t\t\t\t\t\t\t\t\t\t\t\t\n'
+            + b'5\t97\tBax\tKimm\tFather\t433-555-5555\tbkimm@gmail.test\t\t\t\t\t\t\t\t\t\t\t\t\n'
+            + b'6\t98\tLulu\tMcMennum\tMother\t323-555-2222\tlmcmennum@gmail.test\t\t\t\t\t\t\t\t\t\t\t\t\n'
+        )
+        self.importer.import_faculty()
+        self.importer.import_classes()
+        self.importer.import_students()
+        self.importer.import_guardians()
+
+        # Third test: ensure hidden flag removed on parent
+        self.assertFalse(Guardian.objects.get(person_id='98').hidden)
 
 
 class ImportEnrollmentTest(DJOImportTestCase):
