@@ -121,12 +121,15 @@ class DJOImport():
 
         for row in faculty_reader:
             try:
+                # Throws DoesNotExist exception if this Faculty is not in
+                # database
                 faculty_obj = Faculty.objects.get(person_id=row['RECORDID'])
 
                 faculty_obj.first_name = row['FIRST_NAME']
                 faculty_obj.last_name = row['LAST_NAME']
                 faculty_obj.email = row['EMAIL_ADDR']
                 faculty_obj.preferred_name = row['PREFERREDNAME']
+                faculty_obj.hidden = False
 
                 faculty_obj.save()
             except Faculty.DoesNotExist:
@@ -145,10 +148,9 @@ class DJOImport():
         # If we didn't see any given Faculty IDs when running this import, set
         # their `hidden` value to `False`. This will hide their information
         # from certain sections of the UI while retaining historical records.
-        for record in Faculty.objects.all():
-            if record.person_id not in written_ids:
-                record.hidden = True
-                record.save()
+        for record in Faculty.objects.exclude(person_id__in=written_ids):
+            record.hidden = True
+            record.save()
 
     def import_classes(self):
         """Parses all courses and sections.
@@ -233,16 +235,14 @@ class DJOImport():
         # If we didn't see any given Course ID when running the import, set
         # their hidden value to `False`. This will hide their information from
         # certain sections of the UI while retaining historical records.
-        for course in Course.objects.all():
-            if course.course_number not in written_courses:
-                course.hidden = True
-                course.save()
+        for course in Course.objects.exclude(course_number__in=written_courses):
+            course.hidden = True
+            course.save()
 
         # Same thing, only for the Section objects.
-        for section in Section.objects.all():
-            if section.section_id not in written_sections:
-                section.hidden = True
-                section.save()
+        for section in Section.objects.exclude(section_id__in=written_sections):
+            section.hidden = True
+            section.save()
 
     def import_students(self):
         """Parses all students."""
@@ -279,10 +279,9 @@ class DJOImport():
         # If we didn't see any given Student IDs when running this import, set
         # their `hidden` value to `False`. This will hide their information from
         # certain sections of the UI while retaining historical records.
-        for student in Student.objects.all():
-            if student.person_id not in written_students:
-                student.hidden = True
-                student.save()
+        for student in Student.objects.exclude(person_id__in=written_students):
+            student.hidden = True
+            student.save()
 
     def import_guardians(self):
         """Parses all parents and guardians.
@@ -331,7 +330,7 @@ class DJOImport():
             # This section is skipped if the guardian ID has been seen before.
             # This prevents the students from being cleared from the guardians
             # after the initial import.
-            if row[cnt_n + '_ID'] and row[cnt_n + '_ID'] not in written_guardians:
+            if row[cnt_n + '_ID'] and (row[cnt_n + '_ID'] not in written_guardians):
                 try:
                     guardian = Guardian.objects.get(
                         person_id=row[cnt_n + '_ID'])
@@ -374,10 +373,9 @@ class DJOImport():
                     person_id=row['STUDENT_NUMBER']))
                 guardian.save()
 
-        for guardian in Guardian.objects.all():
-            if guardian.person_id not in written_guardians:
-                guardian.hidden = True
-                guardian.save()
+        for guardian in Guardian.objects.exclude(person_id__in=written_guardians):
+            guardian.hidden = True
+            guardian.save()
 
     def import_enrollment(self):
         """Parses all student enrollment data.
@@ -388,8 +386,9 @@ class DJOImport():
         enrollment_reader = bytes_io_to_tsv_dict_reader(self.fs_enrollment)
 
         # Start by clearing all existing enrollment
-        for student in Student.objects.all():
-            student.section_set.clear()
+        for section in Section.objects.all():
+            section.students.clear()
+            section.save()
 
         students_not_found = []
         for row in enrollment_reader:
