@@ -17,6 +17,7 @@ limitations under the License.
 
 from io import BytesIO, StringIO
 from csv import DictReader
+import logging
 
 
 def bytes_io_to_string_io(bytes_io):
@@ -25,3 +26,13 @@ def bytes_io_to_string_io(bytes_io):
 
 def bytes_io_to_tsv_dict_reader(bytes_io):
     return DictReader(bytes_io_to_string_io(bytes_io), delimiter='\t')
+
+
+def disable_logging(f):
+    def wrapper(*args):
+        logging.disable(logging.WARNING)
+        result = f(*args)
+        logging.disable(logging.NOTSET)
+        return result
+
+    return wrapper

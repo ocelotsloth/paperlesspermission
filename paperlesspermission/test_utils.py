@@ -17,13 +17,14 @@ limitations under the License.
 
 from io import BytesIO, StringIO
 from django.test import TestCase
-from paperlesspermission.utils import bytes_io_to_string_io, bytes_io_to_tsv_dict_reader
+from paperlesspermission.utils import bytes_io_to_string_io, bytes_io_to_tsv_dict_reader, disable_logging
 
 
 class BytesIOToStringIOTestCase(TestCase):
     b_value = b'Test String'
     value = 'Test String'
 
+    @disable_logging
     def test_bytes_io_to_string_io(self):
         test = bytes_io_to_string_io(BytesIO(self.b_value)).getvalue()
         expected = StringIO(self.value).getvalue()
@@ -40,6 +41,7 @@ class BytesIOToTSVDictReader(TestCase):
               {'ID': '2', 'TEST_VALUE': 'Smith', 'SAMPLE': 'Hare'},
               {'ID': 'a', 'TEST_VALUE': 'Adams', 'SAMPLE': 'Ferret #1'}]
 
+    @disable_logging
     def test_bytes_io_to_tsv_dict_reader(self):
         i = 0
         for row in bytes_io_to_tsv_dict_reader(BytesIO(self.b_value)):

@@ -19,6 +19,7 @@ from io import BytesIO
 from django.test import TestCase
 from paperlesspermission.models import Faculty, Course, Section, Student, Guardian
 from paperlesspermission.djo import DJOImport
+from paperlesspermission.utils import disable_logging
 
 
 class DJOImportTestCase(TestCase):
@@ -98,6 +99,7 @@ class DJOImportTestCase(TestCase):
 class ImportFacultyTests(DJOImportTestCase):
     """Tests the import_faculty() method"""
 
+    @disable_logging
     def test_import_faculty(self):
         """Tests to ensure that import_faculty does not throw an exception."""
         try:
@@ -105,6 +107,7 @@ class ImportFacultyTests(DJOImportTestCase):
         except Exception:
             self.fail("DJOImport.import_faculty() did not successfully run.")
 
+    @disable_logging
     def test_faculty_import_size(self):
         """Tests to see if the faculty_import function returns the correct
         number of Faculty objects."""
@@ -112,6 +115,7 @@ class ImportFacultyTests(DJOImportTestCase):
 
         self.assertEqual(Faculty.objects.count(), 4)
 
+    @disable_logging
     def test_faculty_contents_initial_hidden_value(self):
         """Tests to ensure that hidden value is always false on first
         import."""
@@ -120,6 +124,7 @@ class ImportFacultyTests(DJOImportTestCase):
         for faculty_obj in Faculty.objects.all():
             self.assertFalse(faculty_obj.hidden)
 
+    @disable_logging
     def test_faculty_object_contents(self):
         """Tests to ensure that the actual faculty objects are correct."""
         self.importer.import_faculty()
@@ -156,6 +161,7 @@ class ImportFacultyTests(DJOImportTestCase):
         self.assertEqual(value_faculty.notify_cell, False)
         self.assertEqual(value_faculty.hidden, False)
 
+    @disable_logging
     def test_faculty_import_hidden(self):
         """Test that hidden is set on deleted faculty members."""
 
@@ -204,6 +210,7 @@ class ImportFacultyTests(DJOImportTestCase):
 class ImportClassesTest(DJOImportTestCase):
     """Test the import_classes() method."""
 
+    @disable_logging
     def test_import_classes(self):
         """Tests to see if import_classes runs without exception."""
         try:
@@ -213,6 +220,7 @@ class ImportClassesTest(DJOImportTestCase):
         except Exception:
             self.fail("DJOImport.import_classes() did not successfully run.")
 
+    @disable_logging
     def test_import_classes_courses_size(self):
         """Tests to see if the import_classes function returns the correct
         number of course objects."""
@@ -221,6 +229,7 @@ class ImportClassesTest(DJOImportTestCase):
 
         self.assertEqual(Course.objects.count(), 3)
 
+    @disable_logging
     def test_import_classes_courses_initial_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the courses objects to False."""
@@ -230,6 +239,7 @@ class ImportClassesTest(DJOImportTestCase):
         for course_obj in Course.objects.all():
             self.assertFalse(course_obj.hidden)
 
+    @disable_logging
     def test_import_classes_courses_deleted_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the courses objects to False."""
@@ -249,6 +259,7 @@ class ImportClassesTest(DJOImportTestCase):
 
         self.assertTrue(Course.objects.get(course_number='0001').hidden)
 
+    @disable_logging
     def test_import_classes_sections_size(self):
         """Tests to see if the import_classes function returns the correct
         number of section objects."""
@@ -257,6 +268,7 @@ class ImportClassesTest(DJOImportTestCase):
 
         self.assertEqual(Section.objects.count(), 4)
 
+    @disable_logging
     def test_import_classes_sections_initial_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the sections objects to False."""
@@ -266,6 +278,7 @@ class ImportClassesTest(DJOImportTestCase):
         for section_obj in Section.objects.all():
             self.assertFalse(section_obj.hidden)
 
+    @disable_logging
     def test_import_classes_sections_deleted_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the sections objects to False."""
@@ -287,6 +300,7 @@ class ImportClassesTest(DJOImportTestCase):
 
 
 class ImportStudentsTest(DJOImportTestCase):
+    @disable_logging
     def test_import_students(self):
         """Test that the import function actually runs."""
         try:
@@ -296,6 +310,7 @@ class ImportStudentsTest(DJOImportTestCase):
         except Exception:
             self.fail("DJOImport.import_classes() did not successfully run.")
 
+    @disable_logging
     def test_import_students_size(self):
         """Tests to see if the import_students function returns the correct
         number of student objects."""
@@ -305,6 +320,7 @@ class ImportStudentsTest(DJOImportTestCase):
 
         self.assertEqual(Student.objects.count(), 6)
 
+    @disable_logging
     def test_import_students_initial_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the sections objects to False."""
@@ -315,6 +331,7 @@ class ImportStudentsTest(DJOImportTestCase):
         for student_obj in Student.objects.all():
             self.assertFalse(student_obj.hidden)
 
+    @disable_logging
     def test_import_students_deleted_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the sections objects to False."""
@@ -361,6 +378,7 @@ class ImportStudentsTest(DJOImportTestCase):
 
 
 class ImportGuardiansTest(DJOImportTestCase):
+    @disable_logging
     def test_import_guardians(self):
         """Test that the import function actually runs."""
         try:
@@ -371,6 +389,7 @@ class ImportGuardiansTest(DJOImportTestCase):
         except Exception:
             self.fail("DJOImport.import_guardians() did not successfully run.")
 
+    @disable_logging
     def test_import_students_size(self):
         """Tests to see if the import_students function returns the correct
         number of student objects."""
@@ -381,6 +400,7 @@ class ImportGuardiansTest(DJOImportTestCase):
 
         self.assertEqual(Guardian.objects.count(), 8)
 
+    @disable_logging
     def test_import_students_initial_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the sections objects to False."""
@@ -392,6 +412,7 @@ class ImportGuardiansTest(DJOImportTestCase):
         for guardian_obj in Guardian.objects.all():
             self.assertFalse(guardian_obj.hidden)
 
+    @disable_logging
     def test_import_students_deleted_hidden_value(self):
         """Tests to see if the import_classes functions initially sets the hiddden
         attribute on the sections objects to False."""
@@ -441,6 +462,7 @@ class ImportGuardiansTest(DJOImportTestCase):
 
 
 class ImportEnrollmentTest(DJOImportTestCase):
+    @disable_logging
     def test_import_enrollment(self):
         """Test that the import function actually runs."""
         try:
@@ -452,6 +474,7 @@ class ImportEnrollmentTest(DJOImportTestCase):
         except Exception:
             self.fail("DJOImport.import_enrollment() did not successfully run.")
 
+    @disable_logging
     def test_import_enrollment_size(self):
         """Tests to see if the import_enrollment function returns the correct
         number of enrollment objects."""
@@ -463,6 +486,7 @@ class ImportEnrollmentTest(DJOImportTestCase):
 
         self.assertEqual(Section.students.through.objects.count(), 12)
 
+    @disable_logging
     def test_import_enrollment_deleted_value(self):
         """Tests to see if the import_enrollment function deletes enrollment that
         is removed from upstream."""
@@ -505,6 +529,7 @@ class ImportEnrollmentTest(DJOImportTestCase):
 
 
 class ImportAllTests(DJOImportTestCase):
+    @disable_logging
     def test_import_all(self):
         """Ensure import_all() actually runs."""
         try:
@@ -512,6 +537,7 @@ class ImportAllTests(DJOImportTestCase):
         except Exception:
             self.fail("DJOImport.import_all() did not successfully run.")
 
+    @disable_logging
     def test_with_obj_use(self):
         """Ensure the __enter__/__exit__ functions work."""
         try:

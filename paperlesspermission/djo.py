@@ -25,11 +25,14 @@ limitations under the License.
 
 from base64 import decodebytes
 from io import BytesIO
+import logging
 
 import paramiko
 
 from paperlesspermission.models import Guardian, Student, Faculty, Course, Section
 from paperlesspermission.utils import bytes_io_to_tsv_dict_reader
+
+LOGGER = logging.getLogger(__name__)
 
 
 class DJOImport():
@@ -104,22 +107,27 @@ class DJOImport():
         fs_enrollment = BytesIO()
 
         try:
+            LOGGER.info("Connecting to sftp server...")
             ssh_client.connect(hostname, username=username,
                                password=password, look_for_keys=False,
                                allow_agent=False)
             sftp_client = ssh_client.open_sftp()
-            sftp_client.chdir('ps_data_export')
+            LOGGER.info("Connection to sftp server successful.")
 
+            LOGGER.info("Downloading data files.")
+            sftp_client.chdir('ps_data_export')
             sftp_client.getfo('fs_classes.txt', fs_classes)
             sftp_client.getfo('fs_faculty.txt', fs_faculty)
             sftp_client.getfo('fs_student.txt', fs_student)
             sftp_client.getfo('fs_parent.txt', fs_parent)
             sftp_client.getfo('fs_enrollment.txt', fs_enrollment)
+            LOGGER.info("Datafiles downloaded successfully.")
 
             return cls(fs_classes, fs_faculty, fs_student, fs_parent,
                        fs_enrollment)
         finally:
             ssh_client.close()
+            LOGGER.info("SSH Connection Closed")
 
     def import_faculty(self):
         """Parses the fs_faculty file and imports to the database.
@@ -127,6 +135,7 @@ class DJOImport():
         Chances are you should be running import_all instead.
         """
 
+        LOGGER.info("Importing Faculty.")
         faculty_reader = bytes_io_to_tsv_dict_reader(self.fs_faculty)
 
         # Keep track of all written Faculty objects so we can later hide old
@@ -159,12 +168,16 @@ class DJOImport():
             finally:
                 written_ids.append(row['RECORDID'])
 
+        LOGGER.info("Faculty imported, setting hidden flags.")
+
         # If we didn't see any given Faculty IDs when running this import, set
         # their `hidden` value to `False`. This will hide their information
         # from certain sections of the UI while retaining historical records.
         for record in Faculty.objects.exclude(person_id__in=written_ids):
             record.hidden = True
             record.save()
+
+        LOGGER.info("All faculty imported.")
 
     def import_classes(self):
         """Parses all courses and sections.
@@ -190,6 +203,7 @@ class DJOImport():
         source.
         """
 
+        LOGGER.info("Importing classes.")
         classes_reader = bytes_io_to_tsv_dict_reader(self.fs_classes)
 
         # Keep track of all written Courses and Section objects.
@@ -246,20 +260,28 @@ class DJOImport():
             finally:
                 written_sections.append(row['RECORDID'])
 
+        LOGGER.info("Classes updated.")
+
         # If we didn't see any given Course ID when running the import, set
         # their hidden value to `False`. This will hide their information from
         # certain sections of the UI while retaining historical records.
         for course in Course.objects.exclude(course_number__in=written_courses):
             course.hidden = True
             course.save()
+        LOGGER.info("Setting hidden flags on courses.")
 
+        LOGGER.info("Setting hidden flags on sections.")
         # Same thing, only for the Section objects.
         for section in Section.objects.exclude(section_id__in=written_sections):
             section.hidden = True
             section.save()
 
+        LOGGER.info("Class importer complete.")
+
     def import_students(self):
         """Parses all students."""
+
+        LOGGER.info("Importing students.")
 
         student_reader = bytes_io_to_tsv_dict_reader(self.fs_student)
 
@@ -290,12 +312,15 @@ class DJOImport():
             finally:
                 written_students.append(row['RECORDID'])
 
+        LOGGER.info("Students updated.")
+
         # If we didn't see any given Student IDs when running this import, set
         # their `hidden` value to `False`. This will hide their information from
         # certain sections of the UI while retaining historical records.
         for student in Student.objects.exclude(person_id__in=written_students):
             student.hidden = True
             student.save()
+        LOGGER.info("Updating hidden flag on students.")
 
     def import_guardians(self):
         """Parses all parents and guardians.
@@ -327,6 +352,8 @@ class DJOImport():
         Each `CNT{number}` block is potentially a new guardian. That said, they
         are also duplicated for each student that shares parents/guardians.
         """
+
+        LOGGER.info("Importing guardians.")
 
         guardian_reader = bytes_io_to_tsv_dict_reader(self.fs_parent)
 
@@ -390,6 +417,10 @@ class DJOImport():
         for guardian in Guardian.objects.exclude(person_id__in=written_guardians):
             guardian.hidden = True
             guardian.save()
+        LOGGER.info("Guardians updated.")
+        LOGGER.info("Setting hidden flags on Guardians.")
+
+        LOGGER.info("Guardians imported.")
 
     def import_enrollment(self):
         """Parses all student enrollment data.
@@ -397,13 +428,17 @@ class DJOImport():
         Chances are you should be running import_all instead.
         """
 
+        LOGGER.info("Importing enrollment data.")
         enrollment_reader = bytes_io_to_tsv_dict_reader(self.fs_enrollment)
 
+        LOGGER.info("Clearing existing enrollment.")
         # Start by clearing all existing enrollment
         for section in Section.objects.all():
             section.students.clear()
             section.save()
+        LOGGER.info("Existing enrollment cleared.")
 
+        LOGGER.info("Updating enrollment.")
         students_not_found = []
         for row in enrollment_reader:
             try:
@@ -413,17 +448,20 @@ class DJOImport():
             except Student.DoesNotExist:
                 if row['STUDENT_NUMBER'] not in students_not_found:
                     students_not_found.append(row['STUDENT_NUMBER'])
-                    print('Student: {0} does not exist!'.format(
+                    LOGGER.warning('Student: {0} does not exist!'.format(
                         row['STUDENT_NUMBER']))
+        LOGGER.info("Enrollment updated.")
         return students_not_found
 
     def import_all(self):
         """Runs all of the import functions in the correct order."""
+        LOGGER.info("DJO Importer started.")
         self.import_faculty()
         self.import_classes()
         self.import_students()
         self.import_guardians()
         self.import_enrollment()
+        LOGGER.info("DJO Importer completed.")
 
     def close(self):
         """Closes the ByteIO buffers."""
