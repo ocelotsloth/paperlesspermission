@@ -173,9 +173,10 @@ class DJOImport():
         # If we didn't see any given Faculty IDs when running this import, set
         # their `hidden` value to `False`. This will hide their information
         # from certain sections of the UI while retaining historical records.
-        for record in Faculty.objects.exclude(person_id__in=written_ids):
-            record.hidden = True
-            record.save()
+        for record in Faculty.objects.all():
+            if record.person_id not in written_ids:
+                record.hidden = True
+                record.save()
 
         LOGGER.info("All faculty imported.")
 
@@ -265,16 +266,18 @@ class DJOImport():
         # If we didn't see any given Course ID when running the import, set
         # their hidden value to `False`. This will hide their information from
         # certain sections of the UI while retaining historical records.
-        for course in Course.objects.exclude(course_number__in=written_courses):
-            course.hidden = True
-            course.save()
         LOGGER.info("Setting hidden flags on courses.")
+        for course in Course.objects.all():
+            if course.course_number not in written_courses:
+                course.hidden = True
+                course.save()
 
         LOGGER.info("Setting hidden flags on sections.")
         # Same thing, only for the Section objects.
-        for section in Section.objects.exclude(section_id__in=written_sections):
-            section.hidden = True
-            section.save()
+        for section in Section.objects.all():
+            if section.section_id not in written_sections:
+                section.hidden = True
+                section.save()
 
         LOGGER.info("Class importer complete.")
 
@@ -317,10 +320,11 @@ class DJOImport():
         # If we didn't see any given Student IDs when running this import, set
         # their `hidden` value to `False`. This will hide their information from
         # certain sections of the UI while retaining historical records.
-        for student in Student.objects.exclude(person_id__in=written_students):
-            student.hidden = True
-            student.save()
         LOGGER.info("Updating hidden flag on students.")
+        for student in Student.objects.all():
+            if student.person_id not in written_students:
+                student.hidden = True
+                student.save()
 
     def import_guardians(self):
         """Parses all parents and guardians.
@@ -414,11 +418,13 @@ class DJOImport():
                     person_id=row['STUDENT_NUMBER']))
                 guardian.save()
 
-        for guardian in Guardian.objects.exclude(person_id__in=written_guardians):
-            guardian.hidden = True
-            guardian.save()
         LOGGER.info("Guardians updated.")
         LOGGER.info("Setting hidden flags on Guardians.")
+
+        for guardian in Guardian.objects.all():
+            if guardian.person_id not in written_guardians:
+                guardian.hidden = True
+                guardian.save()
 
         LOGGER.info("Guardians imported.")
 
