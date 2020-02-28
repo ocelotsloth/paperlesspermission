@@ -46,7 +46,7 @@ class Person(models.Model):
         abstract = True
 
     def __str__(self):
-        return ('{0} {1}'.format(self.first_name, self.last_name))
+        return '{0} {1}'.format(self.first_name, self.last_name)
 
 
 class Guardian(Person):
@@ -141,7 +141,7 @@ class Section(models.Model):
     students = models.ManyToManyField(Student)
 
     def __str__(self):
-        return ("%s - Section %s" % self.course, self.section_number)
+        return ("{0} - Section {1}".format(self.course, self.section_number))
 
 
 class FieldTrip(models.Model):

@@ -35,6 +35,6 @@ class Command(BaseCommand):
                             type=str, help='RSA Fingerprint of SSH Server')
 
     def handle(self, *args, **options):
-        with DJOImport(options['hostname'], options['username'],
+        with DJOImport.GetFromSFTP(options['hostname'], options['username'],
                        options['password'], options['rsa_fingerprint']) as importer:
             importer.import_all()
