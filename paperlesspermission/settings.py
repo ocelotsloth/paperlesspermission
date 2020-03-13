@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admindocs',
+    'crispy_forms',
+    'computed_property',
 ]
 
 MIDDLEWARE = [
@@ -148,3 +150,7 @@ logging.config.dictConfig({
         }
     }
 })
+
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
+
+LINK_ID_SALT = 'uuidsalt'

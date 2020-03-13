@@ -18,8 +18,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import hashlib
+
 from django.db import models
+from django.db.models import Q
 from phonenumber_field.modelfields import PhoneNumberField
+from django.conf import settings
+
+import computed_property
 
 
 class Person(models.Model):
@@ -163,14 +169,99 @@ class FieldTrip(models.Model):
         grade_levels (ManyToManyField): Students enrolled in these grade levels
             will automatically be invited to attend this field trip
     """
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=100)
+    group_name = models.CharField(max_length=100)
+    location = models.CharField(max_length=100)
     start_date = models.DateTimeField()
+    dropoff_time = models.DateTimeField()
+    dropoff_location = models.CharField(max_length=100)
     end_date = models.DateTimeField()
-    students = models.ManyToManyField(Student)
-    faculty = models.ManyToManyField(Faculty)
-    courses = models.ManyToManyField(Course)
-    sections = models.ManyToManyField(Section)
-    grade_levels = models.CharField(max_length=30)
+    pickup_time = models.DateTimeField()
+    pickup_location = models.CharField(max_length=100)
+    students = models.ManyToManyField(Student, null=True, blank=True)
+    faculty = models.ManyToManyField(Faculty, null=True, blank=True)
+    courses = models.ManyToManyField(Course, null=True, blank=True)
+    sections = models.ManyToManyField(Section, null=True, blank=True)
+    grade_levels = models.CharField(max_length=30, null=True, blank=True)
+    due_date = models.DateField()
 
     def __str__(self):
         return self.name
+
+
+class PermissionSlip(models.Model):
+    field_trip = models.ForeignKey(FieldTrip, on_delete=models.PROTECT)
+    guardian = models.ForeignKey(Guardian, null=True, blank=True, on_delete=models.PROTECT)
+    student = models.ForeignKey(Student, on_delete=models.PROTECT)
+    due_date = models.DateField(null=True, blank=True)  # overrides FieldTrip
+    student_signature = models.CharField(max_length=100, null=True, blank=True)
+    student_signature_date = models.DateTimeField(null=True, blank=True)
+    guardian_signature = models.CharField(max_length=100, null=True, blank=True)
+    guardian_signature_date = models.DateTimeField(null=True, blank=True)
+    flagged_for_review = models.BooleanField(default=False, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    Q(student_signature__isnull=True) &
+                    Q(student_signature_date__isnull=True)
+                ) | (
+                    Q(student_signature__isnull=False) &
+                    Q(student_signature_date__isnull=False)
+                ),
+                name='Student signature and signature date must both be null or non-null.'
+            ),
+            models.CheckConstraint(
+                check=(
+                    Q(guardian_signature__isnull=True) &
+                    Q(guardian_signature_date__isnull=True) &
+                    Q(guardian__isnull=True)
+                ) | (
+                    Q(guardian_signature__isnull=False) &
+                    Q(guardian_signature_date__isnull=False) &
+                    Q(guardian__isnull=False)
+                ),
+                name='Guardian, guardian signature and signature date must both be null or non-null.'
+            )
+        ]
+
+
+class PermissionSlipLink(models.Model):
+    permission_slip = models.ForeignKey(
+        PermissionSlip, on_delete=models.PROTECT)
+    guardian = models.ForeignKey(Guardian, on_delete=models.PROTECT, null=True, blank=True)
+    student = models.ForeignKey(Student, on_delete=models.PROTECT, null=True, blank=True)
+    link_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
+
+    def calculate_link_id(self):
+        salt = getattr(settings, "LINK_ID_SALT", '')
+        if self.guardian:
+            person_id = self.guardian.person_id
+        elif self.student:
+            person_id = self.student.person_id
+        else:
+            raise ValueError("No student or guardian set")
+
+        link_composite = '{0}-{1}-{2}'.format(
+            salt, self.permission_slip.id, person_id).encode()
+
+        self.link_id = hashlib.sha256(link_composite).hexdigest()
+
+    def save(self, *args, **kwargs):
+        self.calculate_link_id()
+        super(PermissionSlipLink, self).save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    Q(guardian__isnull=True) &
+                    Q(student__isnull=False)
+                ) | (
+                    Q(guardian__isnull=False) &
+                    Q(student__isnull=True)
+                ),
+                name='Only tied to one person.'
+            )
+        ]
