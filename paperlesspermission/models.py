@@ -25,8 +25,6 @@ from django.db.models import Q
 from phonenumber_field.modelfields import PhoneNumberField
 from django.conf import settings
 
-import computed_property
-
 
 class Person(models.Model):
     """This is an abstract class that defines the common attributes of people.
@@ -147,7 +145,7 @@ class Section(models.Model):
     students = models.ManyToManyField(Student)
 
     def __str__(self):
-        return ("{0} - Section {1}".format(self.course, self.section_number))
+        return "{0} - Section {1}".format(self.course, self.section_number)
 
 
 class FieldTrip(models.Model):
@@ -172,18 +170,47 @@ class FieldTrip(models.Model):
     name = models.CharField(max_length=100)
     group_name = models.CharField(max_length=100)
     location = models.CharField(max_length=100)
-    start_date = models.DateTimeField()
-    dropoff_time = models.DateTimeField()
+    start_date = models.DateField()
+    dropoff_time = models.TimeField()
     dropoff_location = models.CharField(max_length=100)
-    end_date = models.DateTimeField()
-    pickup_time = models.DateTimeField()
+    end_date = models.DateField()
+    pickup_time = models.TimeField()
     pickup_location = models.CharField(max_length=100)
-    students = models.ManyToManyField(Student, null=True, blank=True)
-    faculty = models.ManyToManyField(Faculty, null=True, blank=True)
-    courses = models.ManyToManyField(Course, null=True, blank=True)
-    sections = models.ManyToManyField(Section, null=True, blank=True)
+    students = models.ManyToManyField(Student, blank=True)
+    faculty = models.ManyToManyField(Faculty, blank=True)
+    courses = models.ManyToManyField(Course, blank=True)
+    sections = models.ManyToManyField(Section, blank=True)
     grade_levels = models.CharField(max_length=30, null=True, blank=True)
     due_date = models.DateField()
+
+    def generatePermissionSlips(self):
+        """Generates permission slips for all included students.
+
+        Note: This method uses boolean algebra of sets to generate a
+              distinct list of all included students.
+        """
+
+        # Add students
+        student_list = self.students
+        # Add all students in included courses
+        for course in self.courses:
+            for section in Section.objects.filter(course=course):
+                student_list = student_list | section.students
+        # Add all students in included section
+        for section in self.sections:
+            student_list = student_list | section.students
+        # Add all students in included grade levels
+        student_list = self.students | Student.objects.filter(grade_level__in=[self.grade_levels])
+
+        # Actually generate the permission slips
+        for student in student_list:
+            permission_slip, created = PermissionSlip.objects.get_or_create(
+                field_trip=self,
+                student=student,
+                defaults={'flagged_for_review': False}
+            )
+            if created:
+                permission_slip.generateSlipLinks()
 
     def __str__(self):
         return self.name
@@ -199,6 +226,23 @@ class PermissionSlip(models.Model):
     guardian_signature = models.CharField(max_length=100, null=True, blank=True)
     guardian_signature_date = models.DateTimeField(null=True, blank=True)
     flagged_for_review = models.BooleanField(default=False, blank=True)
+
+    def generateSlipLinks(self):
+        # Get list of all guardians of this student
+        student_guardians = self.student.guardian_set
+
+        # Generate link for student (if not created already)
+        PermissionSlipLink.get_or_create(
+            permission_slip=self,
+            student=self.student
+        )
+
+        # Generate links for each guardian (if not created already)
+        for guardian in student_guardians:
+            PermissionSlipLink.get_or_create(
+                permission_slip=self,
+                guardian=guardian
+            )
 
     class Meta:
         constraints = [
@@ -223,6 +267,10 @@ class PermissionSlip(models.Model):
                     Q(guardian__isnull=False)
                 ),
                 name='Guardian, guardian signature and signature date must both be null or non-null.'
+            ),
+            models.UniqueConstraint(
+                fields=['field_trip', 'student'],
+                name='Each student can have at most one permission slip per field trip.'
             )
         ]
 

@@ -26,10 +26,8 @@ def slip(request, slip_id):
 
     if slip_link.guardian:
         submission_type = 'Parent'
-        complete = bool(permission_slip.guardian_signature_date)
     elif slip_link.student:
         submission_type = 'Student'
-        complete = bool(permission_slip.student_signature_date)
     else:
         raise ValueError('No guardian or student present')
 
@@ -54,6 +52,10 @@ def slip(request, slip_id):
             form = PermissionSlipFormParent()
         elif submission_type == 'Student':
             form = PermissionSlipFormStudent()
+
+    if (permission_slip.guardian_signature and permission_slip.student_signature):
+        complete = max(permission_slip.guardian_signature_date,
+                       permission_slip.student_signature_date)
 
     context = {
         'form': form,
