@@ -1,0 +1,44 @@
+{% extends 'paperlesspermission/layouts/base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+Paperless Permission - Slip
+{%endblock %} <!-- block title -->
+
+{% block content %}
+
+{% load static %}
+
+<div class="col-lg-2"></div>
+<div class="col">
+    <h1 class="page-title">Bishop O’Connell High School Field Trip Permission Form</h1>
+    <div class="card">
+        <div class="card-body">
+            <h3 class="float-right">{% if complete %}<span class="badge badge-success">Complete</span>{% else %}<span class="badge badge-danger">Due: {{ due_date }}</span>{% endif %}</h3>
+            <h4 class="card-title">Permission Form for: <u>{{ trip_title }}</u></h4>
+            <p class="card-text">As the parent/legal guardian of <mark><b>{{ student_name }}</b></mark> permission is hereby given for my child to go on a school trip with <mark><b>{{ group_name }}</b></mark> to <mark><b>{{ location }}</b></mark> on <mark><b>{{ start_date }}</b></mark>. Students will meet at <mark><b>{{ dropoff_location }}</b></mark> at <mark><b>{{ start_time }}</b></mark> and the pickup/return time will be <mark><b>{{ end_date }}</b></mark> at <mark><b>{{ end_time }}</b></mark> at <mark><b>{{ pickup_location }}</b></mark>.</p>
+            <p class="card-text">I understand and acknowledge that participation in the activities involves inherent risks of injury to my child including risks associated with transportation by motor vehicle. I agree to indemnify Bishop O’Connell H.S., Volunteers, and the Diocese of Arlington for any costs or expenses arising out of my child’s participation in the activities including the cost of any medical care given my child or any expenses or fees incurred in any lawsuit arising as a result of any damage or injuries caused by my child in the course of his or her participation in the activity. <b>I further give my consent</b> that in my absence the above-named minor be admitted to any hospital or medical facility for diagnosis and treatment. I request and authorize physicians, dentists, and staff, duly licensed as Doctors of Medicine or Doctors of Dentistry or other such licensed technicians or nurses, to perform any diagnostic procedures, treatment procedures, operative procedures and x-ray treatment of the above minor. I have not been given a guarantee as to the results of examination or treatment. I authorize the hospital or medical facility to dispose of any specimen or tissue taken from the above-named minor. I understand that in the event my child becomes ill with a communicable illness during the trip, I have to make immediate arrangements to retrieve my child from the trip location.</p>
+            <h5 class="card-title">Student Responsibility {% if student_complete_date %}<span class="badge badge-success">Submitted {{ student_complete_date }}</span>{% else %}<span class="badge badge-warning">Student Not Submitted</span>{% endif %}</h5>
+            <p class="card-text">I have had a conversation with my student, and they are aware that the school handbook rules are in effect during this field trip.</p>
+            <p class="card-text">Your student must also submit this form to signify that they are aware of this.</p>
+            <h5 class="card-title">Parent Submission {% if guardian_complete_date %}<span class="badge badge-success">Submitted {{ guardian_complete_date }}</span>{% else %}<span class="badge badge-warning">Parent Not Submitted</span>{% endif %}</h5>
+            <p class="card-text">As the parent/legal guardian of <mark><b>{{ student_name }}</b></mark>, my submission of this form will act as my signature of my recognition and acceptance of the policies and guidelines stated in the form.</p>
+        </div> <!-- card-body -->
+    </div> <!-- card -->
+    {% if complete == False %}
+        <div class="container" style="margin-top:1rem;">
+            <h2>{{ submission_type }} Submission</h2>
+            <form method="post">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <div class="form-group row">
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+</div> <!-- col -->
+<div class="col-lg-2"></div>
+
+{% endblock %} <!-- block content -->

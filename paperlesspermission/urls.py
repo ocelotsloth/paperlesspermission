@@ -34,5 +34,6 @@ from . import views
 urlpatterns = [
     path('admin/doc/', include('django.contrib.admindocs.urls')),
     path('admin/', admin.site.urls),
-    path('', views.index, name='index')
+    path('', views.index, name='index'),
+    path('slip/<slug:slip_id>/', views.slip, name='permission slip'),
 ]
