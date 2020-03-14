@@ -297,6 +297,7 @@ class PermissionSlipLink(models.Model):
         self.link_id = hashlib.sha256(link_composite).hexdigest()
 
     def save(self, *args, **kwargs):
+        """Overrides default save method by calculating the link_id."""
         self.calculate_link_id()
         super(PermissionSlipLink, self).save(*args, **kwargs)
 

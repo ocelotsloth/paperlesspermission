@@ -31,7 +31,7 @@ def slip(request, slip_id):
     else:
         raise ValueError('No guardian or student present')
 
-    if request.method == 'POST' and not complete:
+    if request.method == 'POST' and not permission_slip.complete:
         if submission_type == 'Parent':
             form = PermissionSlipFormParent(request.POST)
         elif submission_type == 'Student':
