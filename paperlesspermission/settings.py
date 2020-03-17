@@ -11,7 +11,26 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
+import ldap
+import environ
+from django_auth_ldap.config import LDAPSearch, LDAPSearchUnion, LDAPGroupQuery, NestedMemberDNGroupType
 import logging.config
+
+env = environ.Env(
+    DEBUG=(bool, False),
+    LDAP_LOG_LEVEL=(str, 'INFO'),
+    LDAP_SERVER_URI=(str, ''),
+    LDAP_BIND_DN=(str, ''),
+    LDAP_BIND_PASSWORD=(str, ''),
+    LDAP_START_TLS=(bool, True),
+    LDAP_USERS_BASE_DN=(str, ''),
+    LDAP_GROUPS_BASE_DN=(str, ''),
+    LDAP_ACTIVE_GROUP_DN=(str, ''),
+    LDAP_STAFF_GROUP_DN=(str, ''),
+    LDAP_SUPERUSER_GROUP_DN=(str, ''),
+    LDAP_CACHE_GROUPS=(bool, False)
+)
+environ.Env.read_env()
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,10 +40,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '&h47-3jl$v*iq)dy0k+yuyuwq7ehmf95$k00v$3bjvi)ftz%#m'
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = []
 
@@ -84,6 +103,35 @@ DATABASES = {
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'django_auth_ldap.backend.LDAPBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+AUTH_LDAP_SERVER_URI = env('LDAP_SERVER_URI')
+AUTH_LDAP_START_TLS = env('LDAP_START_TLS')
+AUTH_LDAP_BIND_DN = env('LDAP_BIND_DN')
+AUTH_LDAP_BIND_PASSWORD = env('LDAP_BIND_PASSWORD')
+AUTH_LDAP_USER_SEARCH = LDAPSearch(
+    env('LDAP_USERS_BASE_DN'), ldap.SCOPE_SUBTREE, '(uid=%(user)s)'
+)
+# Set up the basic group parameters.
+AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
+    env('LDAP_GROUPS_BASE_DN'),
+    ldap.SCOPE_SUBTREE,
+    "(objectClass=posixGroup)",
+)
+AUTH_LDAP_GROUP_TYPE = NestedMemberDNGroupType('member', name_attr='uid')
+AUTH_LDAP_USER_ATTR_MAP = {"first_name": "givenName", "last_name": "sn", "email": "mail"}
+AUTH_LDAP_USER_FLAGS_BY_GROUP = {
+    "is_superuser": env('LDAP_SUPERUSER_GROUP_DN'),
+    "is_staff": env('LDAP_STAFF_GROUP_DN'),
+    "is_active": env('LDAP_ACTIVE_GROUP_DN'),
+}
+AUTH_LDAP_CACHE_GROUPS = env('LDAP_CACHE_GROUPS')
+
 
 
 # Password validation
@@ -146,7 +194,11 @@ logging.config.dictConfig({
         '': {
             'level': 'INFO',
             'handlers': ['console']
-        }
+        },
+        'django_auth_ldap': {
+            "level": env('LDAP_LOG_LEVEL'),
+            "handlers": ["console"]
+        },
     }
 })
 

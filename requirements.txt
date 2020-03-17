@@ -7,6 +7,7 @@ cryptography==2.8
 Django==3.0.4
 django-auth-ldap==2.1.0
 django-crispy-forms==1.9.0
+django-environ==0.4.5
 django-phonenumber-field==4.0.0
 docutils==0.16
 isort==4.3.21
