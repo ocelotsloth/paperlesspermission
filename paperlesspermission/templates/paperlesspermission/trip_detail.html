@@ -1,0 +1,30 @@
+{% extends 'paperlesspermission/layouts/base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+Paperless Permission - {{ title }}
+{%endblock %} <!-- block title -->
+
+{% block head %}
+{{ form.media }}
+{% endblock %}
+
+{% block content %}
+
+{% load static %}
+
+<div class="row">
+    <div class="col">
+        <h1 class="page-title">{{ title }}</h2>
+        {% crispy form %}
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    continue
+});
+</script>
+
+{% endblock %} <!-- block content -->

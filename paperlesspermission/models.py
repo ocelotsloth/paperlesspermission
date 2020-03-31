@@ -50,7 +50,7 @@ class Person(models.Model):
         abstract = True
 
     def __str__(self):
-        return '{0} {1}'.format(self.first_name, self.last_name)
+        return self.email.split('@')[0]
 
 
 class Guardian(Person):
@@ -177,11 +177,12 @@ class FieldTrip(models.Model):
     pickup_time = models.TimeField()
     pickup_location = models.CharField(max_length=100)
     students = models.ManyToManyField(Student, blank=True)
-    faculty = models.ManyToManyField(Faculty, blank=True)
+    faculty = models.ManyToManyField(Faculty)
     courses = models.ManyToManyField(Course, blank=True)
     sections = models.ManyToManyField(Section, blank=True)
     grade_levels = models.CharField(max_length=30, null=True, blank=True)
     due_date = models.DateField()
+    hidden = models.BooleanField(default=False)
 
     def generatePermissionSlips(self):
         """Generates permission slips for all included students.

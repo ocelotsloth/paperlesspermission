@@ -13,7 +13,8 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 import os
 import ldap
 import environ
-from django_auth_ldap.config import LDAPSearch, LDAPSearchUnion, LDAPGroupQuery, NestedMemberDNGroupType
+from django_auth_ldap.config import (LDAPSearch, LDAPSearchUnion,
+                                     LDAPGroupQuery, NestedMemberDNGroupType)
 import logging.config
 
 env = environ.Env(
@@ -60,6 +61,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admindocs',
     'crispy_forms',
+    'django_filters',
+    'django_select2',
+    'bootstrap_datepicker_plus',
 ]
 
 MIDDLEWARE = [
@@ -204,4 +208,12 @@ logging.config.dictConfig({
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
+BOOTSTRAP4 = {
+    'include_jquery': True,
+}
+
 LINK_ID_SALT = 'uuidsalt'
+
+LOGIN_URL = '/login'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'

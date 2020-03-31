@@ -1,0 +1,30 @@
+{% extends 'paperlesspermission/layouts/base.html' %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+Paperless Permission - Login
+{%endblock %} <!-- block title -->
+
+{% block content %}
+
+{% load static %}
+
+<div class="row">
+<div class="col-lg-4"></div>
+<div class="col">
+    <h1 class="page-title">Staff Login</h1>
+    <div class="card">
+    <div class="card-body">
+    <form method="post">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button class="btn btn-primary" type="submit">Login</button>
+    </form>
+    </div>
+    </div>
+</div>
+<div class="col-lg-4"></div>
+</div>
+
+{% endblock %} <!-- block content -->
