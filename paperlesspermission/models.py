@@ -22,9 +22,10 @@ import hashlib
 
 from django.db import models
 from django.db.models import Q
-from phonenumber_field.modelfields import PhoneNumberField
+from django.db import transaction
 from django.conf import settings
 
+from phonenumber_field.modelfields import PhoneNumberField
 
 class Person(models.Model):
     """This is an abstract class that defines the common attributes of people.
@@ -49,8 +50,12 @@ class Person(models.Model):
     class Meta:
         abstract = True
 
+    def get_full_name(self):
+        """Returns the full name of a person"""
+        return '{0} {1}'.format(self.first_name, self.last_name)
+
     def __str__(self):
-        return self.email.split('@')[0]
+        return '{0} {1}'.format(self.first_name, self.last_name)
 
 
 class Guardian(Person):
@@ -79,7 +84,23 @@ class Student(Person):
         guardians (ManyToManyField): All of the `Guardians` related to the
             Student
     """
-    grade_level = models.CharField(max_length=30)
+    FRESHMAN = 'FR'
+    SOPHOMORE = 'SO'
+    JUNIOR = 'JR'
+    SENIOR = 'SR'
+    GRADE_LEVEL_CHOICES = [
+        (FRESHMAN, 'Freshman'),
+        (SOPHOMORE, 'Sophomore'),
+        (JUNIOR, 'Junior'),
+        (SENIOR, 'Senior'),
+    ]
+    grade_level = models.CharField(
+        max_length=2,
+        choices=GRADE_LEVEL_CHOICES,
+    )
+
+    def __str__(self):
+        return self.email.split('@')[0]
 
 
 class Faculty(Person):
@@ -166,6 +187,9 @@ class FieldTrip(models.Model):
             automatically be invited to attend this field trip
         grade_levels (ManyToManyField): Students enrolled in these grade levels
             will automatically be invited to attend this field trip
+        status (IntegerField Choice): Current status of the trip. DO NOT update
+            this field directly. Instead use the appropriate approve(),
+            initial_notify(), or archive() method.
     """
     name = models.CharField(max_length=100)
     group_name = models.CharField(max_length=100)
@@ -184,24 +208,116 @@ class FieldTrip(models.Model):
     due_date = models.DateField()
     hidden = models.BooleanField(default=False)
 
-    def generatePermissionSlips(self):
+    # Default value. This is set when a teacher submits a new trip. While the
+    # status is still 0, teachers are still able to make changes.
+    #
+    # Emails to students and guardians MUST NOT be sent for trips in this
+    # status.
+    #
+    # TODO: write test to verify this behavior
+    NEW = 0
+    # Approved is set after Administrator approves the trip. This MUST prevent
+    # teachers from making changes to the trip.
+    #
+    # Emails to students and guardians MAY be sent for trips in this status.
+    # Once sent, the status MUST be updated to IN_PROGRESS.
+    #
+    # TODO: write test to verify this behavior
+    APPROVED = 1
+    # After the Admin sends the initial notifications out, the status is changed
+    # to RELEASED. Admins can still make changes, but will be shown a
+    # warning.
+    #
+    # Emails to students and guardians MAY be sent for trips in this status.
+    # These emails SHOULD NOT be sent to for permission slips that have been
+    # completed by the student and one Guardian.
+    #
+    # RELEASED trips SHOULD NOT be set back to APPROVED.
+    #                MUST NOT be set back to NEW.
+    #
+    # TODO: write test to verify this behavior
+    RELEASED = 2
+    # Once the due-date passes, the trip is locked, archived and cannot be
+    # changed.
+    #
+    # Emails MUST NOT be sent for trips in this status.
+    #
+    # ARCHIVED trips MUST NOT be set back to NEW.
+    #                MUST NOT be set back to APPROVED.
+    #                SHOULD NOT be set back to IN_PROGRESS.
+    #                SHOULD NOT be modified. Their slips or slip-links either.
+    #
+    # TODO: write test to verify this behavior
+    ARCHIVED = 3
+    STATUS_CHOICES = (
+        (NEW, 'New'),
+        (APPROVED, 'Approved'),
+        (RELEASED, 'Released'),
+        (ARCHIVED, 'Archived'),
+    )
+    status = models.IntegerField(choices=STATUS_CHOICES, default=NEW)
+
+    def faculty_is_moderator(self, email):
+        """Returns whether a faculty member is a moderator for a trip.
+
+        The search is performed using the email address.
+        """
+        return self.faculty.all().filter(email=email).exists()
+
+    @transaction.atomic
+    def approve(self):
+        """Approves a field trip. Do not run this before authenticating user.
+
+        Ideally you would run this method from within a transaction."""
+
+        if self.status != self.NEW:
+            # No need to do anything if the trip is already approved.
+            return
+
+        self.status = self.APPROVED
+        self.save()
+
+    def release(self):
+        """Sets the status to IN_PROGRESS. You are repsonsible for sending
+        notifications by yourself."""
+
+        if self.status != self.APPROVED:
+            raise RuntimeError('FieldTrip cannot be released if it is not currently Approved')
+
+        self.status = self.RELEASED
+
+    @transaction.atomic
+    def archive(self):
+        """Sets the status to ARCHIVED. Any further modifications will be
+        frozen.
+
+        This method should be run from within a transaction."""
+
+        self.status = self.ARCHIVED
+        self.hidden = True
+        self.save()
+
+    def generate_permission_slips(self, force=False):
         """Generates permission slips for all included students.
 
         Note: This method uses boolean algebra of sets to generate a
               distinct list of all included students.
         """
 
+        if (not force) and (self.status == self.ARCHIVED):
+            raise RuntimeError("Should not modify archived trip. Unarchive or use force=True.")
+
         # Add students
-        student_list = self.students
+        student_list = self.students.all()
         # Add all students in included courses
-        for course in self.courses:
+        for course in self.courses.all():
             for section in Section.objects.filter(course=course):
-                student_list = student_list | section.students
+                student_list = student_list | section.students.all()
         # Add all students in included section
-        for section in self.sections:
-            student_list = student_list | section.students
+        for section in self.sections.all():
+            student_list = student_list | section.students.all()
         # Add all students in included grade levels
-        student_list = self.students | Student.objects.filter(grade_level__in=[self.grade_levels])
+        student_list = student_list | Student.objects.filter(grade_level__in=[self.grade_levels])
 
         # Actually generate the permission slips
         for student in student_list:
@@ -211,7 +327,7 @@ class FieldTrip(models.Model):
                 defaults={'flagged_for_review': False}
             )
             if created:
-                permission_slip.generateSlipLinks()
+                permission_slip.generate_slip_links()
 
     def __str__(self):
         return self.name
@@ -228,22 +344,92 @@ class PermissionSlip(models.Model):
     guardian_signature_date = models.DateTimeField(null=True, blank=True)
     flagged_for_review = models.BooleanField(default=False, blank=True)
 
-    def generateSlipLinks(self):
+    def reset(self):
+        self.guardian = None
+        self.student_signature = None
+        self.student_signature_date = None
+        self.guardian_signature = None
+        self.guardian_signature_date = None
+        self.flagged_for_review = False
+
+    def generate_slip_links(self):
         # Get list of all guardians of this student
-        student_guardians = self.student.guardian_set
+        student_guardians = Guardian.objects.filter(students__id=self.student.id)
 
         # Generate link for student (if not created already)
-        PermissionSlipLink.get_or_create(
+        PermissionSlipLink.objects.get_or_create(
             permission_slip=self,
             student=self.student
         )
 
         # Generate links for each guardian (if not created already)
         for guardian in student_guardians:
-            PermissionSlipLink.get_or_create(
+            PermissionSlipLink.objects.get_or_create(
                 permission_slip=self,
                 guardian=guardian
             )
+
+    def generate_emails(self):
+        slip_links = PermissionSlipLink.objects.filter(permission_slip=self)
+        emails = []
+        student = self.student
+        efrom = getattr(settings, 'EMAIL_FROM_ADDRESS')
+        for slip_link in slip_links:
+
+            if slip_link.guardian:
+                to = [slip_link.guardian.email]
+                subject = 'New Permission Slip for {0}'.format(student.get_full_name())
+                message = """{0},
+
+There is a new permission slip for you to fill out for your student, {1}.
+
+Trip: {2}
+Location: {3}
+Date: {4}
+Permission Slip Link (click): {5}
+
+Please visit the above link to view and fill out the permission slip by the due date, {6}.
+
+Thank you for your time,
+
+-- 
+DJO Activities Office""".format(
+                    slip_link.guardian.get_full_name(),
+                    student.get_full_name(),
+                    self.field_trip.name,
+                    self.field_trip.location,
+                    self.field_trip.start_date,
+                    "http://localhost:8000/slip/{0}".format(slip_link.link_id),
+                    self.field_trip.due_date
+                )
+            elif slip_link.student:
+                to = [slip_link.student.email]
+                subject = 'New Permission Slip for {0}'.format(self.field_trip.name)
+                message = """{0},
+
+There is a new permission slip for you to fill out:
+
+Trip: {1}
+Location: {2}
+Date: {3}
+Permission Slip Link (click): {4}
+
+Please visit the above link to view anf ill out the permission slip by the due date, {5}
+
+Thank you for your time,
+
+-- 
+DJO Activities Office""".format(
+                    slip_link.student.get_full_name(),
+                    self.field_trip.name,
+                    self.field_trip.location,
+                    self.field_trip.start_date,
+                    "http://localhost:8000/slip/{0}".format(slip_link.link_id),
+                    self.field_trip.due_date
+                )
+
+            emails.append((subject, message, efrom, to))
+        return emails
 
     class Meta:
         constraints = [
@@ -255,7 +441,7 @@ class PermissionSlip(models.Model):
                     Q(student_signature__isnull=False) &
                     Q(student_signature_date__isnull=False)
                 ),
-                name='Student signature and signature date must both be null or non-null.'
+                name='stu sig and sig date must both be null or non-null.'
             ),
             models.CheckConstraint(
                 check=(
@@ -267,11 +453,11 @@ class PermissionSlip(models.Model):
                     Q(guardian_signature_date__isnull=False) &
                     Q(guardian__isnull=False)
                 ),
-                name='Guardian, guardian signature and signature date must both be null or non-null.'
+                name='guard, guard sig and sig date must both be null or non-null.'
             ),
             models.UniqueConstraint(
                 fields=['field_trip', 'student'],
-                name='Each student can have at most one permission slip per field trip.'
+                name='Each stu can have at most one slip per field trip.'
             )
         ]
 
@@ -282,8 +468,10 @@ class PermissionSlipLink(models.Model):
     guardian = models.ForeignKey(Guardian, on_delete=models.PROTECT, null=True, blank=True)
     student = models.ForeignKey(Student, on_delete=models.PROTECT, null=True, blank=True)
     link_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    last_sent = models.DateTimeField(null=True, blank=True)
 
     def calculate_link_id(self):
+        """Generates a hash-based link identifier for a permission slip link."""
         salt = getattr(settings, "LINK_ID_SALT", '')
         if self.guardian:
             person_id = self.guardian.person_id

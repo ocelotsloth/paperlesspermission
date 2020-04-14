@@ -9,36 +9,63 @@ Paperless Permission - Trips
 {% load static %}
 
 <div class="row">
-    <div class="col">
+    <div class="col"><div class="container">
         <h1 class="page-title">Active Field Trips</h2>
         <table id="active-trips" class="table compact table-striped table-bordered">
             <thead>
                 <tr>
+                    <th>Start</th>
                     <th>Name</th>
                     <th>Group</th>
                     <th>Location</th>
-                    <th>Start</th>
-                    <th>Details</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for trip in trips %}
                     <tr>
+                        <td>{{ trip.start_date }}</td>
                         <td>{{ trip.name }}</td>
                         <td>{{ trip.group_name }}</td>
                         <td>{{ trip.location }}</td>
-                        <td>{{ trip.start_date }}</td>
-                        <td><a href="/trip/{{ trip.id }}"><button>Details</button></a></td>
+                        <td>
+                            <button data-type="trip" data-tripid="{{ trip.id }}" data-action="">Details</button>
+                            {% if trip.status == 0 %}<button data-type="trip" data-tripid="{{ trip.id }}" data-action="approve">Approve</button>{% endif %}
+                            {% if trip.status == 1 %}<button data-type="trip" data-tripid="{{ trip.id }}" data-action="release">Release</button>{% endif %}
+                            {% if trip.status == 2 or trip.status == 3 %}<button data-type="trip" data-tripid="{{ trip.id }}" data-action="status">Status</button>{% endif %}
+                            {% if trip.status != 3 %}<button data-type="trip" data-tripid="{{ trip.id }}" data-action="archive">Archive</button>{% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
+    </div></div>
 </div>
 
 <script>
 $(document).ready(function() {
-    $('#active-trips').DataTable();
+    $('#active-trips').DataTable({
+        dom: 'Bfrtip',
+        buttons: [
+            {
+                text: 'New Field Trip',
+                className: 'btn-success',
+                action: (e, dt, node, config) => {
+                    window.location = '/trip/new';
+                }
+            },
+            {
+                extend: 'csv',
+                text: 'Export Table'
+            }
+        ]
+    });
+    $('button[data-type|=trip]').on('click', event => {
+        console.log($( event.target )[0])
+        tripid = $( event.target )[0].dataset.tripid
+        action = $( event.target )[0].dataset.action
+        window.location = `/trip/${tripid}/${action}`
+    })
 });
 </script>
 

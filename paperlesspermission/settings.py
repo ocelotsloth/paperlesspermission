@@ -8,6 +8,20 @@ https://docs.djangoproject.com/en/3.0/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.0/ref/settings/
+
+Copyright 2020 Mark Stenglein, The Paperless Permission Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 import os
@@ -19,6 +33,20 @@ import logging.config
 
 env = environ.Env(
     DEBUG=(bool, False),
+    DJO_SFTP_HOST=(str, ''),
+    DJO_SFTP_USER=(str, ''),
+    DJO_SFTP_PASS=(str, ''),
+    DJO_SFTP_FINGERPRINT=(str, ''),
+    EMAIL_HOST=(str, ''),
+    EMAIL_PORT=(str, ''),
+    EMAIL_HOST_USER=(str, ''),
+    EMAIL_HOST_PASSWORD=(str, ''),
+    EMAIL_USE_TLS=(bool, False),
+    EMAIL_USE_SSL=(bool, False),
+    #EMAIL_TIMEOUT=(int),
+    EMAIL_FROM_ADDRESS=(str, 'noreply@localhost'),
+    EMAIL_SSL_KEYFILE=(str, ''),
+    EMAIL_SSL_CERTFILE=(str, ''),
     LDAP_LOG_LEVEL=(str, 'INFO'),
     LDAP_SERVER_URI=(str, ''),
     LDAP_BIND_DN=(str, ''),
@@ -29,7 +57,12 @@ env = environ.Env(
     LDAP_ACTIVE_GROUP_DN=(str, ''),
     LDAP_STAFF_GROUP_DN=(str, ''),
     LDAP_SUPERUSER_GROUP_DN=(str, ''),
-    LDAP_CACHE_GROUPS=(bool, False)
+    LDAP_CACHE_GROUPS=(bool, False),
+    CELERY_BROKER_USER=(str, ''),
+    CELERY_BROKER_PASSWORD=(str, ''),
+    CELERY_BROKER_HOST=(str, ''),
+    CELERY_BROKER_PORT=(str, ''),
+    CELERY_BROKER_VHOST=(str, ''),
 )
 environ.Env.read_env()
 
@@ -64,6 +97,9 @@ INSTALLED_APPS = [
     'django_filters',
     'django_select2',
     'bootstrap_datepicker_plus',
+    'django_celery_results',
+    'django_celery_beat',
+    'djcelery_email',
 ]
 
 MIDDLEWARE = [
@@ -103,9 +139,20 @@ WSGI_APPLICATION = 'paperlesspermission.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'paperlesspermission',
+        'USER': 'paperlesspermission',
+        'PASSWORD': 'paperlesspermission',
+        'HOST': 'localhost',
+        'PORT': '',
     }
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+        'LOCATION': '127.0.0.1:11211',
+    },
 }
 
 # Authentication backends
@@ -162,7 +209,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Be sure to run (as root):
+# mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root mysql
+TIME_ZONE = 'America/New_York'
 
 USE_I18N = True
 
@@ -217,3 +266,28 @@ LINK_ID_SALT = 'uuidsalt'
 LOGIN_URL = '/login'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+CELERY_RESULT_BACKEND = 'django-db'
+
+CELERY_BROKER_USER = env('CELERY_BROKER_USER')
+CELERY_BROKER_PASSWORD = env('CELERY_BROKER_PASSWORD')
+CELERY_BROKER_HOST = env('CELERY_BROKER_HOST')
+CELERY_BROKER_PORT = env('CELERY_BROKER_PORT')
+CELERY_BROKER_VHOST = env('CELERY_BROKER_VHOST')
+
+DJO_SFTP_HOST = env('DJO_SFTP_HOST')
+DJO_SFTP_USER = env('DJO_SFTP_USER')
+DJO_SFTP_PASS = env('DJO_SFTP_PASS')
+DJO_SFTP_FINGERPRINT = env('DJO_SFTP_FINGERPRINT')
+
+
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env('EMAIL_PORT')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = env('EMAIL_USE_TLS')
+EMAIL_USE_SSL = env('EMAIL_USE_SSL')
+#EMAIL_TIMEOUT = env('EMAIL_TIMEOUT')
+EMAIL_SSL_KEYFILE = env('EMAIL_SSL_KEYFILE')
+EMAIL_SSL_CERTFILE = env('EMAIL_SSL_CERTFILE')
+EMAIL_BACKEND = 'djcelery_email.backends.CeleryEmailBackend'
+EMAIL_FROM_ADDRESS = env('EMAIL_FROM_ADDRESS')

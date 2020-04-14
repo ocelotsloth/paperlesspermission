@@ -1,0 +1,87 @@
+{% extends 'paperlesspermission/layouts/base.html' %}
+
+{% block title %}
+Paperless Permission - Trip Status
+{%endblock %} <!-- block title -->
+
+{% block content %}
+
+{% load static %}
+
+<div class="row">
+    <div class="col"><div class="container">
+        <h1 class="page-title">Trip Status: {{ trip.name }}</h2>
+        <div class="row">
+            <div class="col">
+                <ul class="list-group">
+                    <li class="list-group-item"><b>Start Date: </b>{{ trip.start_date }}</li>
+                    <li class="list-group-item"><b>End Date: </b>{{ trip.end_date }}</li>
+                </ul>
+            </div>
+            <div class="col">
+                <ul class="list-group">
+                    <li class="list-group-item"><b>Location: </b>{{ trip.location }}</li>
+                    <li class="list-group-item"><b>Due Date: </b>{{ trip.due_date }}</li>
+                </ul>
+            </div>
+        </div>
+        <table id="active-trips" class="table compact table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Student Signature</th>
+                    <th>Student Signature Date</th>
+                    <th>Signing Guardian</th>
+                    <th>Guardian Signature</th>
+                    <th>Guardian Signature Date</th>
+                    <th>Special Due Date</th>
+                    {% if user.is_staff %}<th>Actions</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for slip in slips %}
+                    <tr>
+                        <td>{{ slip.student.get_full_name }}</td>
+                        <td>{{ slip.student_signature|default:"" }}</td>
+                        <td>{{ slip.student_signature_date|default:"" }}</td>
+                        <td>{% if slip.guardian %}{{ slip.guardian.get_full_name }}{% endif %}</td>
+                        <td>{{ slip.guardian_signature|default:"" }}</td>
+                        <td>{{ slip.guardian_signature_date|default:"" }}</td>
+                        <td>{{ slip.due_date|default:"" }}</td>
+                        {% if user.is_staff %}
+                            <td>
+                                <button data-type="slip" data-slipid="{{ slip.id }}" data-action="reset">Reset</button>
+                                <button data-type="slip" data-slipid="{{ slip.id }}" data-action="resend">Resend</button>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div></div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#active-trips').DataTable({
+        dom: 'Bfrtip',
+        buttons: [
+            {
+                extend: 'csv',
+                text: 'Export Table'
+            }
+        ]
+    });
+    $('button[data-type|=slip]').on('click', event => {
+        console.log($( event.target )[0])
+        slipid = $( event.target )[0].dataset.slipid
+        action = $( event.target )[0].dataset.action
+        fetch(`/slip/${slipid}/${action}`)
+            .then(response => {
+                location.reload()
+            })
+    })
+});
+</script>
+
+{% endblock %} <!-- block content -->
