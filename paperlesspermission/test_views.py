@@ -44,25 +44,13 @@ class IndexViewTests(ViewTest):
         """Ensure that the index view is mapped to '/'"""
         self.assertEqual(reverse('index'), '/')
 
-    def test_index_view_not_authenticated_redirect(self):
-        """Ensure an unauthenticated user is redirected to /login"""
-        response = self.client.get(reverse('index'))
-
-        # Check that status code is a redirect
-        self.assertEqual(response.status_code, 302)
-
-        # Check that response class type is HttpResponseRedirect
-        self.assertEqual(response.__class__.__name__, 'HttpResponseRedirect')
-
-        # Check that the redirect URL is to '/login'
-        self.assertEqual(response.url, '/login')
-
-    def index_view_authenticated_redirect(self, user):
+    def index_view_redirect(self, redirect_location, user=None):
         """Ensure an authenticated user is redirected to /trip
 
         Run this function in other test cases. This allows for testing
         multiple types of users."""
-        self.client.force_login(user)
+        if user is not None:
+            self.client.force_login(user)
         response = self.client.get('/')
 
         # Check that status code is a redirect
@@ -72,16 +60,20 @@ class IndexViewTests(ViewTest):
         self.assertEqual(response.__class__.__name__, 'HttpResponseRedirect')
 
         # Check that the redirect URL is to '/trip'
-        self.assertEqual(response.url, '/trip')
+        self.assertEqual(response.url, redirect_location)
+
+    def test_index_view_not_authenticated_redirect(self):
+        """Ensure an unauthenticated user is redirected to /login"""
+        self.index_view_redirect('/login')
 
     def test_index_view_authenticated_redirect_teacher(self):
         """Test index redirect for teacher user"""
-        self.index_view_authenticated_redirect(self.teacher_user)
+        self.index_view_redirect('/trip', self.teacher_user)
 
     def test_index_view_authenticated_redirect_admin(self):
         """Test index redirect for admin user"""
-        self.index_view_authenticated_redirect(self.admin_user)
+        self.index_view_redirect('/trip', self.admin_user)
 
     def test_index_view_authenticated_redirect_superuser(self):
         """Test index redirect for super user"""
-        self.index_view_authenticated_redirect(self.super_user)
+        self.index_view_redirect('/trip', self.super_user)
