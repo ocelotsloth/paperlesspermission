@@ -48,6 +48,7 @@ def djo_import_all(request):
     if not request.user.is_staff:
         raise PermissionDenied
 
+    context = {}
     async_djo_import_enrollment_data.delay()
     return render(request, 'paperlesspermission/index.html', context)
 
