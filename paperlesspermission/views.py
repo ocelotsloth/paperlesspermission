@@ -111,6 +111,7 @@ def slip(request, slip_id):
         'submission_type': submission_type,
         'student_complete_date': permission_slip.student_signature_date,
         'guardian_complete_date': permission_slip.guardian_signature_date,
+        'guardian_name': permission_slip.guardian.get_full_name(),
         'complete': complete,
     }
     return render(request, 'paperlesspermission/slip.html', context)
@@ -244,7 +245,7 @@ def trip_status(request, trip_id):
     trip = get_object_or_404(FieldTrip, id=trip_id)
 
     if ((not request.user.is_staff)
-            or (not trip.faculty_is_moderator(request.user.email))):
+            and (not trip.faculty_is_moderator(request.user.email))):
         raise PermissionDenied
 
     slips = PermissionSlip.objects.filter(field_trip__id=trip.id)

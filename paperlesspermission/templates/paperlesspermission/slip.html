@@ -22,7 +22,7 @@ Paperless Permission - Slip
             <h5 class="card-title">Student Responsibility {% if student_complete_date %}<span class="badge badge-success">Submitted {{ student_complete_date }}</span>{% else %}<span class="badge badge-warning">Student Not Submitted</span>{% endif %}</h5>
             <p class="card-text">I have had a conversation with my student, and they are aware that the school handbook rules are in effect during this field trip.</p>
             <p class="card-text">Your student must also submit this form to signify that they are aware of this.</p>
-            <h5 class="card-title">Parent Submission {% if guardian_complete_date %}<span class="badge badge-success">Submitted {{ guardian_complete_date }}</span>{% else %}<span class="badge badge-warning">Parent Not Submitted</span>{% endif %}</h5>
+            <h5 class="card-title">Parent Submission {% if guardian_complete_date %}<span class="badge badge-success">{{ guardian_name }} Submitted {{ guardian_complete_date }}</span>{% else %}<span class="badge badge-warning">Parent Not Submitted</span>{% endif %}</h5>
             <p class="card-text">As the parent/legal guardian of <mark><b>{{ student_name }}</b></mark>, my submission of this form will act as my signature of my recognition and acceptance of the policies and guidelines stated in the form.</p>
         </div> <!-- card-body -->
     </div> <!-- card -->

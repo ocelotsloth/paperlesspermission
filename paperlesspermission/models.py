@@ -414,7 +414,7 @@ Location: {2}
 Date: {3}
 Permission Slip Link (click): {4}
 
-Please visit the above link to view anf ill out the permission slip by the due date, {5}
+Please visit the above link to view and fill out the permission slip by the due date, {5}
 
 Thank you for your time,
 
