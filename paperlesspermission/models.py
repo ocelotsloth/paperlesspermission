@@ -18,7 +18,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import hashlib
+from hashlib import sha256
 
 from django.db import models
 from django.db.models import Q
@@ -483,7 +483,7 @@ class PermissionSlipLink(models.Model):
         link_composite = '{0}-{1}-{2}'.format(
             salt, self.permission_slip.id, person_id).encode()
 
-        self.link_id = hashlib.sha256(link_composite).hexdigest()
+        self.link_id = sha256(link_composite).hexdigest()
 
     def save(self, *args, **kwargs):
         """Overrides default save method by calculating the link_id."""
