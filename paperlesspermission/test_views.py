@@ -20,29 +20,40 @@ import logging
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
 
 import paperlesspermission.views as views
 import paperlesspermission.models as models
 
 class ViewTest(TestCase):
+    """Defines functions and data available to all view test cases."""
     def setUp(self):
+        """Set up data available to all view test cases."""
+        # pylint: disable=invalid-name
         super(ViewTest, self).setUp()
 
         logging.disable(logging.CRITICAL)
 
-        self.teacher_user = User.objects.create_user('teacher',
-                email='tuser@school.test', password='test')
+        self.teacher_user = User.objects.create_user(
+            'teacher',
+            email='tuser@school.test',
+            password='test'
+        )
 
-        self.admin_user = User.objects.create_user('admin',
-                email='auser@school.test', password='test')
+        self.admin_user = User.objects.create_user(
+            'admin',
+            email='auser@school.test',
+            password='test'
+        )
         self.admin_user.is_staff = True
         self.admin_user.save()
 
-        self.super_user = User.objects.create_superuser('super',
-                email='suser@school.test', password='test')
+        self.super_user = User.objects.create_superuser(
+            'super',
+            email='suser@school.test',
+            password='test'
+        )
 
-        self.student1 = models.Student(
+        student1 = models.Student(
             person_id='202300001',
             first_name='Test',
             last_name='Student',
@@ -51,9 +62,20 @@ class ViewTest(TestCase):
             notify_cell=True,
             grade_level=models.Student.FRESHMAN
         )
-        self.student1.save()
+        student1.save()
 
-        self.guardian1 = models.Guardian(
+        student2 = models.Student(
+            person_id='202200002',
+            first_name='Alice',
+            last_name='Hanson',
+            email='ahanson@school.test',
+            cell_number='+7035555555',
+            notify_cell=True,
+            grade_level=models.Student.FRESHMAN
+        )
+        student2.save()
+
+        guardian1 = models.Guardian(
             person_id='2001',
             first_name='Guardian',
             last_name='Student',
@@ -61,11 +83,23 @@ class ViewTest(TestCase):
             cell_number='+17035555555',
             notify_cell=True,
         )
-        self.guardian1.save()
-        self.guardian1.students.add(self.student1)
-        self.guardian1.save()
+        guardian1.save()
+        guardian1.students.add(student1)
+        guardian1.save()
 
-        self.teacher1 = models.Faculty(
+        guardian2 = models.Guardian(
+            person_id='2002',
+            first_name='Alice',
+            last_name='Hanson',
+            email='ahanson@email.test',
+            cell_number='+17035555555',
+            notify_cell=True
+        )
+        guardian2.save()
+        guardian2.students.add(student2)
+        guardian2.save()
+
+        teacher1 = models.Faculty(
             person_id='1000001',
             first_name='Teacher',
             last_name='User',
@@ -74,28 +108,80 @@ class ViewTest(TestCase):
             notify_cell=True,
             preferred_name='Mrs. Teacher'
         )
-        self.teacher1.save()
+        teacher1.save()
 
-        self.course100 = models.Course(
+        teacher2 = models.Faculty(
+            person_id='1000002',
+            first_name='Joey',
+            last_name='West',
+            email='jwest@school.test',
+            cell_number='+17035555555',
+            notify_cell=True,
+            preferred_name='Mrs. West'
+        )
+        teacher2.save()
+
+        course100 = models.Course(
             course_number='100',
             course_name='English 1'
         )
-        self.course100.save()
+        course100.save()
 
-        self.section101 = models.Section(
+        course105 = models.Course(
+            course_number='105',
+            course_name='Biology 2'
+        )
+        course105.save()
+
+        section101 = models.Section(
             section_id='100101',
-            course=self.course100,
+            course=course100,
             section_number='101',
-            teacher=self.teacher1,
+            teacher=teacher1,
             school_year='2020',
             room='202',
             period='2nd'
         )
-        self.section101.save()
-        self.section101.students.add(self.student1)
-        self.section101.save()
+        section101.save()
+        section101.students.add(student1)
+        section101.save()
+
+        section102 = models.Section(
+            section_id='105102',
+            course=course105,
+            section_number='102',
+            teacher=teacher2,
+            school_year='2020',
+            room='312',
+            period='3rd'
+        )
+        section102.save()
+        section102.students.add(student1)
+        section102.students.add(student2)
+        section102.save()
+
+        trip = models.FieldTrip(
+            id=1,
+            name='Test Trip',
+            group_name='Fishing Club',
+            location='Bermuda Triangle',
+            start_date='2020-03-01',
+            dropoff_time='13:30',
+            dropoff_location='Front Entrance',
+            end_date='2020-04-01',
+            pickup_time='13:30',
+            pickup_location='Front Entrance',
+            due_date='2020-02-15'
+        )
+        trip.save()
+        trip.students.add(student1)
+        trip.faculty.add(teacher1)
+        trip.save()
+        trip.generate_permission_slips()
 
     def tearDown(self):
+        """Reset logging."""
+        # pylint: disable=invalid-name
         super(ViewTest, self).tearDown()
 
         logging.disable(logging.NOTSET)
@@ -146,6 +232,7 @@ class IndexViewTests(ViewTest):
         self.check_view_redirect(reverse('index'), '/trip', self.super_user)
 
 class DJOImportAllViewTests(ViewTest):
+    """Test cases for djo import all view."""
     def test_djo_import_all_view_exists(self):
         """Ensure that the djo_import_all view exists."""
         self.assertTrue(hasattr(views, 'djo_import_all'))
@@ -186,4 +273,147 @@ class DJOImportAllViewTests(ViewTest):
         self.assertEqual(response.status_code, 204)
 
 class SlipViewTests(ViewTest):
-    pass
+    """Test cases for the slip view."""
+    def test_slip_view_exists(self):
+        """Ensure that the slip view exists."""
+        self.assertTrue(hasattr(views, 'slip'))
+
+    def test_slip_view_mapped_correctly(self):
+        """Ensure that the URL mapping is correct."""
+        self.assertEqual(
+            reverse('permission slip', kwargs={'slip_id': '1'}),
+            '/slip/1/'
+        )
+
+    def test_slip_view_get_student_slip(self):
+        """Ensure that a student link returns the student submission."""
+
+        # We're going to get student1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            student=student1
+        )
+        slip_url_id = slip_link.link_id
+
+        response = self.client.get(
+            reverse('permission slip', kwargs={'slip_id': slip_url_id})
+        )
+
+        self.assertContains(
+            response,
+            'Student Submission',
+            status_code=200,
+            html=True,
+        )
+
+    def test_slip_view_submit_student_slip(self):
+        """Ensure that submitting a student slip returns a filled
+        out student portion."""
+
+        # We're going to get student1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            student=student1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': 'Test Student Submission',
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert that the returned page shows the page submitted.
+        self.assertContains(
+            response,
+            'Submitted',
+            status_code=200,
+            html=False,
+        )
+
+        # Assert that the student slip has actually been submitted.
+        permission_slip.refresh_from_db()
+        self.assertEqual(permission_slip.student_signature, 'Test Student Submission')
+        self.assertTrue(permission_slip.student_signature_date)
+
+    def test_slip_view_already_submitted_student_slip(self):
+        """Ensure that an already submitted student slip is rendered with
+        submitted shown in the green badge."""
+
+        # We're going to get student1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            student=student1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        self.client.post(
+            slip_url,
+            {
+                'name': 'Test Student Submission',
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+        response = self.client.get(slip_url)
+
+        # Assert that the returned page shows the page submitted.
+        self.assertContains(
+            response,
+            'Submitted',
+            status_code=200,
+            html=False,
+        )
+
+    def test_slip_view_get_parent_slip(self):
+        """Ensure that a parent link returns the parent submission."""
+
+        # We're going to get student1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        guardian1 = models.Guardian.objects.get(person_id='2001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian1
+        )
+        slip_url_id = slip_link.link_id
+
+        response = self.client.get(
+            reverse('permission slip', kwargs={'slip_id': slip_url_id})
+        )
+
+        self.assertContains(
+            response,
+            'Parent Submission',
+            status_code=200,
+            html=True,
+        )
