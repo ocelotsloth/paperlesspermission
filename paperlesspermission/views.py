@@ -54,6 +54,8 @@ def djo_import_all(request):
 
 @csrf_protect
 def slip(request, slip_id):
+    """View or process permission slips."""
+    # pylint: disable=too-many-branches
 
     slip_link = get_object_or_404(PermissionSlipLink, link_id=slip_id)
     permission_slip = slip_link.permission_slip
@@ -66,7 +68,9 @@ def slip(request, slip_id):
     else:
         raise ValueError('No guardian or student present')
 
-    if request.method == 'POST' and not (permission_slip.student_signature and permission_slip.guardian_signature):
+    if (request.method == 'POST' and
+            not (permission_slip.student_signature and
+                 permission_slip.guardian_signature)):
         if submission_type == 'Parent':
             form = PermissionSlipFormParent(request.POST)
         elif submission_type == 'Student':
@@ -94,6 +98,9 @@ def slip(request, slip_id):
     else:
         complete = False
 
+    guardian_name = permission_slip.guardian.get_full_name() \
+        if permission_slip.guardian else None
+
     context = {
         'hide_login': True,
         'form': form,
@@ -111,7 +118,7 @@ def slip(request, slip_id):
         'submission_type': submission_type,
         'student_complete_date': permission_slip.student_signature_date,
         'guardian_complete_date': permission_slip.guardian_signature_date,
-        'guardian_name': permission_slip.guardian.get_full_name(),
+        'guardian_name': guardian_name,
         'complete': complete,
     }
     return render(request, 'paperlesspermission/slip.html', context)
@@ -165,12 +172,11 @@ def trip_detail(request, trip_id, existing=True):
     #  - If trip is archived
     #  - If trip is approved and you are not admin staff
     #  - If trip is already released and you are not admin staff
-    if (trip.status == FieldTrip.ARCHIVED
-            or trip.status == FieldTrip.APPROVED and not request.user.is_staff
-            or trip.status == FieldTrip.RELEASED and not request.user.is_staff):
-        read_only = True
-    else:
-        read_only = False
+    read_only = (trip.status == FieldTrip.ARCHIVED
+                 or (trip.status == FieldTrip.APPROVED
+                     and not request.user.is_staff)
+                 or (trip.status == FieldTrip.RELEASED
+                     and not request.user.is_staff))
 
     form = TripDetailForm(initial=model_to_dict(trip), read_only=read_only)
     title = 'Field Trip Detail' if existing else 'Create Field Trip'
