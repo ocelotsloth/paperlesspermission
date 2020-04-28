@@ -16,11 +16,12 @@ limitations under the License.
 """
 from django import forms
 from django.db import transaction
-from .models import Student, Faculty, Course, Section
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit, Layout, Fieldset, ButtonHolder, Row, Column
 from django_select2.forms import Select2MultipleWidget
 from bootstrap_datepicker_plus import DatePickerInput, TimePickerInput
+
+from .models import Student, Faculty, Course, Section
 
 class PermissionSlipFormParent(forms.Form):
     helper = FormHelper()
