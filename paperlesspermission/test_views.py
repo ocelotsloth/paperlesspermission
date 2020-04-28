@@ -29,7 +29,7 @@ class ViewTest(TestCase):
     """Defines functions and data available to all view test cases."""
     def setUp(self):
         """Set up data available to all view test cases."""
-        # pylint: disable=invalid-name
+        # pylint: disable=invalid-name,too-many-statements
         super(ViewTest, self).setUp()
 
         logging.disable(logging.CRITICAL)
@@ -191,6 +191,43 @@ class ViewTest(TestCase):
         trip.faculty.add(teacher1)
         trip.save()
         trip.generate_permission_slips()
+
+        trip2 = models.FieldTrip(
+            id=2,
+            name='Trip 2',
+            group_name='Hiking Club',
+            location='Bald Mountain',
+            start_date='2020-04-01',
+            dropoff_time='12:34',
+            dropoff_location='Rear Entrance',
+            end_date='2020-04-06',
+            pickup_time='16:10',
+            pickup_location='Rear Entrance',
+            due_date='2020-03-15'
+        )
+        trip2.save()
+        trip2.sections.add(section102)
+        trip2.faculty.add(teacher2)
+        trip2.save()
+
+        trip_archived = models.FieldTrip(
+            id=3,
+            name='Trip 3 Hidden',
+            group_name='Hiking Club',
+            location='Bald Mountain',
+            start_date='2020-04-01',
+            dropoff_time='12:34',
+            dropoff_location='Rear Entrance',
+            end_date='2020-04-06',
+            pickup_time='16:10',
+            pickup_location='Rear Entrance',
+            due_date='2020-03-15'
+        )
+        trip_archived.save()
+        trip_archived.sections.add(section102)
+        trip_archived.faculty.add(teacher1)
+        trip_archived.save()
+        trip_archived.archive()
 
     def tearDown(self):
         """Reset logging."""
@@ -766,4 +803,111 @@ class SlipViewTests(ViewTest):
             status_code=200,
             html=False,
         )
+
+class TripListViewTest(ViewTest):
+    """Test the trip_list view."""
+    def test_trip_list_view_exists(self):
+        """Tests to ensure the trip list view exists."""
+        self.assertTrue(hasattr(views, 'index'))
+
+    def test_trip_list_view_mapped_correctly(self):
+        """The trip_list view should be mapped to /trip/"""
+        self.assertEqual(reverse('trip list'), '/trip/')
+
+    def test_trip_list_hidden_view_mapped_correctly(self):
+        """trip_list view should also have a pointer from /archive/"""
+        self.assertEqual(reverse('trip archive'), '/archive/')
+
+    def test_trip_list_login_redirect(self):
+        """trip_list should redirect anonymous users to the login page"""
+        next_url = '/login?next={0}'.format(reverse('trip list'))
+        self.check_view_redirect(reverse('trip list'), next_url)
+
+    def test_trip_list_hidden_login_redirect(self):
+        """trip_list archive should redirect anonymous users to the login page"""
+        next_url = '/login?next={0}'.format(reverse('trip archive'))
+        self.check_view_redirect(reverse('trip archive'), next_url)
+
+    def test_trip_list_get_admin(self):
+        """trip list should include all trips when admin logged in"""
+        self.client.force_login(self.admin_user)
+        response = self.client.get(
+            reverse('trip list')
+        )
+        self.assertContains(
+            response,
+            'Test Trip',
+            status_code=200,
+            html=False
+        )
+        self.assertContains(
+            response,
+            'Trip 2',
+            status_code=200,
+            html=False
+        )
+        self.assertNotContains(
+            response,
+            'Trip 3 Hidden',
+            status_code=200,
+            html=False
+        )
+
+    def test_trip_list_get_teacher(self):
+        """trip list should include only trips teacher is on when teacher logged in"""
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(
+            reverse('trip list')
+        )
+        self.assertContains(
+            response,
+            'Test Trip',
+            status_code=200,
+            html=False
+        )
+        self.assertNotContains(
+            response,
+            'Trip 2',
+            status_code=200,
+            html=False
+        )
+        self.assertNotContains(
+            response,
+            'Trip 3 Hidden',
+            status_code=200,
+            html=False
+        )
+
+    def test_trip_list_archive_get_admin(self):
+        """trip list archive should only return (all) hidden trips"""
+        self.client.force_login(self.admin_user)
+        response = self.client.get(
+            reverse('trip archive')
+        )
+        self.assertNotContains(
+            response,
+            'Test Trip',
+            status_code=200,
+            html=False
+        )
+        self.assertNotContains(
+            response,
+            'Trip 2',
+            status_code=200,
+            html=False
+        )
+        self.assertContains(
+            response,
+            'Trip 3 Hidden',
+            status_code=200,
+            html=False
+        )
+
+    def test_trip_list_archive_get_teacher(self):
+        """teachers are not permitted to view archive"""
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(
+            reverse('trip archive')
+        )
+        self.assertEqual(response.status_code, 403)
 
