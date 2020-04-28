@@ -19,7 +19,7 @@ import logging
 import datetime
 
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseServerError, HttpResponseBadRequest
 from django.template import loader
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_protect
@@ -31,7 +31,7 @@ from django.db import transaction, DatabaseError
 
 from .forms import PermissionSlipFormStudent, PermissionSlipFormParent, TripDetailForm
 from .models import PermissionSlipLink, PermissionSlip, FieldTrip
-from paperlesspermission.tasks import async_djo_import_enrollment_data, async_generate_permission_slips, async_initial_trip_notifications, async_resend_permission_slip
+from .tasks import async_djo_import_enrollment_data, async_generate_permission_slips, async_initial_trip_notifications, async_resend_permission_slip
 
 LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +66,10 @@ def slip(request, slip_id):
     elif slip_link.student:
         submission_type = 'Student'
     else:
-        raise ValueError('No guardian or student present')
+        # This should NEVER be run. The PermissionSlipLink model constraints
+        # prevent this state. Nevertheless....let's add the check.
+        LOGGER.error('No guardian or student present in slip_link id=%s', slip_link.id)
+        return HttpResponseServerError()
 
     if (request.method == 'POST' and
             not (permission_slip.student_signature and
@@ -86,6 +89,9 @@ def slip(request, slip_id):
                 permission_slip.student_signature = form.cleaned_data["name"]
                 permission_slip.student_signature_date = timezone.now()
             permission_slip.save()
+        else:
+            LOGGER.error('Invalid submission attempted for slip_id=%s', slip_id)
+            return HttpResponseBadRequest()
     else:
         if submission_type == 'Parent':
             form = PermissionSlipFormParent()
