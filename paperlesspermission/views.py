@@ -135,11 +135,10 @@ def trip_list(request, show_hidden=False, message=None):
     to the user. Set hidden to True to show current and archived trips."""
     if request.user.is_staff:
         # Show staff all open trips
-        if show_hidden:
-            trips = FieldTrip.objects()
-        else:
-            trips = FieldTrip.objects.filter(hidden=False)
+        trips = FieldTrip.objects.filter(hidden=show_hidden)
     else:
+        if show_hidden:
+            raise PermissionDenied
         # Only show users Field Trips they are a coordinator for
         trips = FieldTrip.objects.filter(
             hidden=False,
