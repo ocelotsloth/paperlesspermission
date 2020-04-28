@@ -43,6 +43,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view()),
     path('slip/<slug:slip_id>/', views.slip, name='permission slip'),
     path('trip/', views.trip_list, name='trip list'),
+    path('archive/', views.trip_list, {'show_hidden': True}, name='trip archive'),
     path('trip/new/', views.new_trip, name='new field trip'),
     path('trip/<int:trip_id>/', views.trip_detail, name='trip detail'),
     path('trip/<int:trip_id>/status', views.trip_status, name='trip status'),
