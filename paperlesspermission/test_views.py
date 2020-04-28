@@ -16,6 +16,7 @@ limitations under the License.
 """
 
 import logging
+from time import sleep
 
 from django.test import TestCase
 from django.urls import reverse
@@ -98,6 +99,18 @@ class ViewTest(TestCase):
         guardian2.save()
         guardian2.students.add(student2)
         guardian2.save()
+
+        guardian3 = models.Guardian(
+            person_id='2003',
+            first_name='OtherGuardian',
+            last_name='Student',
+            email='ogstudent@email.test',
+            cell_number='+17035555555',
+            notify_cell=True,
+        )
+        guardian3.save()
+        guardian3.students.add(student1)
+        guardian3.save()
 
         teacher1 = models.Faculty(
             person_id='1000001',
@@ -353,6 +366,88 @@ class SlipViewTests(ViewTest):
         self.assertEqual(permission_slip.student_signature, 'Test Student Submission')
         self.assertTrue(permission_slip.student_signature_date)
 
+    def test_slip_view_reject_invalid_student_submission_ec(self):
+        """Student submissions with no electronic_consent must be rejected."""
+
+        # We're going to get student1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            student=student1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        initial_student_sig = permission_slip.student_signature
+        initial_student_sig_date = permission_slip.student_signature_date
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': 'Test Student Submission', # NOTE: This is not blank
+                'electronic_consent': False,       # NOTE: This is blank
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert that the returned page is an error.
+        self.assertEqual(response.status_code, 400)
+
+        # Assert that the permission_slip has not been updated.
+        permission_slip.refresh_from_db()
+        final_student_sig = permission_slip.student_signature
+        final_student_sig_date = permission_slip.student_signature_date
+
+        self.assertEqual(initial_student_sig, final_student_sig)
+        self.assertEqual(initial_student_sig_date, final_student_sig_date)
+
+    def test_slip_view_reject_invalid_student_submission_sig(self):
+        """Student submissions with no name/signature must be rejected."""
+
+        # We're going to get student1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            student=student1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        initial_student_sig = permission_slip.student_signature
+        initial_student_sig_date = permission_slip.student_signature_date
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': '',                 # NOTE: This is blank
+                'electronic_consent': True, # NOTE: This is not blank
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert that the returned page is an error.
+        self.assertEqual(response.status_code, 400)
+
+        # Assert that the permission_slip has not been updated.
+        permission_slip.refresh_from_db()
+        final_student_sig = permission_slip.student_signature
+        final_student_sig_date = permission_slip.student_signature_date
+
+        self.assertEqual(initial_student_sig, final_student_sig)
+        self.assertEqual(initial_student_sig_date, final_student_sig_date)
+
     def test_slip_view_already_submitted_student_slip(self):
         """Ensure that an already submitted student slip is rendered with
         submitted shown in the green badge."""
@@ -393,7 +488,7 @@ class SlipViewTests(ViewTest):
     def test_slip_view_get_parent_slip(self):
         """Ensure that a parent link returns the parent submission."""
 
-        # We're going to get student1's trip1 permission slip.
+        # We're going to get guardian1's trip1 permission slip.
         student1 = models.Student.objects.get(person_id='202300001')
         guardian1 = models.Guardian.objects.get(person_id='2001')
         trip = models.FieldTrip.objects.get(id=1)
@@ -417,3 +512,258 @@ class SlipViewTests(ViewTest):
             status_code=200,
             html=True,
         )
+
+    def test_slip_view_POST_parent_slip(self):
+        """Ensure that submitting a student slip returns a filled out guardian portion."""
+
+        # We're going to get guardian1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        guardian1 = models.Guardian.objects.get(person_id='2001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': 'Test Parent Submission',
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert that the returned page shows the page submitted.
+        self.assertContains(
+            response,
+            'Submitted',
+            status_code=200,
+            html=False,
+        )
+
+        # Assert that the returned page shows the guardian name.
+        self.assertContains(
+            response,
+            'Guardian Student',
+            status_code=200,
+            html=False
+        )
+
+        # Assert that the student slip has actually been submitted.
+        permission_slip.refresh_from_db()
+        self.assertEqual(permission_slip.guardian_signature, 'Test Parent Submission')
+        self.assertTrue(permission_slip.guardian_signature_date)
+
+    def test_slip_view_POST_second_parent_slip(self):
+        """A parent submission from a different parent should update the slip."""
+
+        # First get guardian1's slip and fill it out.
+        student1 = models.Student.objects.get(person_id='202300001')
+        guardian1 = models.Guardian.objects.get(person_id='2001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian1
+        )
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_link.link_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': 'Test Guardian 1 Submission',
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+
+        permission_slip.refresh_from_db()
+        initial_sig_date = permission_slip.guardian_signature_date
+
+        # At this point the slip should be filled out by guardian1. Lets change
+        # that to guardian3 and assert that the database gets that update.
+
+        # First, let's wait a couple of seconds to ensure the time/date is
+        # different, as we'll be testing to make sure the database changes that
+        # stored/logged value.
+        sleep(2)
+
+        guardian3 = models.Guardian.objects.get(person_id='2003')
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian3
+        )
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_link.link_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        signature = 'Test Guardian 3 Submission'
+        response = self.client.post(
+            slip_url,
+            {
+                'name': signature,
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert response is correct
+
+        self.assertContains(
+            response,
+            'OtherGuardian Student',
+            status_code=200,
+            html=False,
+        )
+
+        # Assert database was updated
+        permission_slip.refresh_from_db()
+        final_sig_date = permission_slip.guardian_signature_date
+        self.assertEqual(permission_slip.guardian_signature, signature)
+        self.assertNotEqual(initial_sig_date, final_sig_date)
+
+    def test_slip_view_reject_invalid_parent_submission_ec(self):
+        """Parent submissions with no electronic_consent must be rejected."""
+
+        # We're going to get guardian1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        guardian1 = models.Guardian.objects.get(person_id='2001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        initial_student_sig = permission_slip.student_signature
+        initial_student_sig_date = permission_slip.student_signature_date
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': 'Test Parent Submission', # NOTE: This is not blank
+                'electronic_consent': False,      # NOTE: This is blank
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert that the returned page is an error.
+        self.assertEqual(response.status_code, 400)
+
+        # Assert that the permission_slip has not been updated.
+        permission_slip.refresh_from_db()
+        final_student_sig = permission_slip.student_signature
+        final_student_sig_date = permission_slip.student_signature_date
+
+        self.assertEqual(initial_student_sig, final_student_sig)
+        self.assertEqual(initial_student_sig_date, final_student_sig_date)
+
+    def test_slip_view_reject_invalid_parent_submission_sig(self):
+        """Parent submissions with no name/signature must be rejected."""
+
+        # We're going to get guardian1's trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        guardian1 = models.Guardian.objects.get(person_id='2001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian1
+        )
+        slip_url_id = slip_link.link_id
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_url_id})
+
+        initial_student_sig = permission_slip.student_signature
+        initial_student_sig_date = permission_slip.student_signature_date
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': '',                 # NOTE: This is blank
+                'electronic_consent': True, # NOTE: This is not blank
+                'csrf_token': csrf_token
+            },
+        )
+
+        # Assert that the returned page is an error.
+        self.assertEqual(response.status_code, 400)
+
+        # Assert that the permission_slip has not been updated.
+        permission_slip.refresh_from_db()
+        final_student_sig = permission_slip.student_signature
+        final_student_sig_date = permission_slip.student_signature_date
+
+        self.assertEqual(initial_student_sig, final_student_sig)
+        self.assertEqual(initial_student_sig_date, final_student_sig_date)
+
+    def test_completed_slip_shows_completed(self):
+        """Completed slips should show a green badge in the upper right."""
+
+        # We're going to get guardian1 and student1s' trip1 permission slip.
+        student1 = models.Student.objects.get(person_id='202300001')
+        guardian1 = models.Guardian.objects.get(person_id='2001')
+        trip = models.FieldTrip.objects.get(id=1)
+        permission_slip = models.PermissionSlip.objects.get(
+            field_trip=trip,
+            student=student1
+        )
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            guardian=guardian1
+        )
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_link.link_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        self.client.post(
+            slip_url,
+            {
+                'name': 'Guardian 1 Name',
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+
+        slip_link = models.PermissionSlipLink.objects.get(
+            permission_slip=permission_slip,
+            student=student1
+        )
+        slip_url = reverse('permission slip', kwargs={'slip_id': slip_link.link_id})
+
+        csrf_token = self.client.get(slip_url).context.get('csrf_token')
+        response = self.client.post(
+            slip_url,
+            {
+                'name': 'Student 1 Name',
+                'electronic_consent': True,
+                'csrf_token': csrf_token
+            },
+        )
+
+        self.assertContains(
+            response,
+            '<h3 class="float-right"><span class="badge badge-success">Complete</span></h3>',
+            status_code=200,
+            html=False,
+        )
+
