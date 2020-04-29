@@ -17,6 +17,7 @@ limitations under the License.
 
 import logging
 from time import sleep
+from datetime import date, time
 
 from django.test import TestCase
 from django.urls import reverse
@@ -831,9 +832,7 @@ class TripListViewTest(ViewTest):
     def test_trip_list_get_admin(self):
         """trip list should include all trips when admin logged in"""
         self.client.force_login(self.admin_user)
-        response = self.client.get(
-            reverse('trip list')
-        )
+        response = self.client.get(reverse('trip list'))
         self.assertContains(
             response,
             'Test Trip',
@@ -856,9 +855,7 @@ class TripListViewTest(ViewTest):
     def test_trip_list_get_teacher(self):
         """trip list should include only trips teacher is on when teacher logged in"""
         self.client.force_login(self.teacher_user)
-        response = self.client.get(
-            reverse('trip list')
-        )
+        response = self.client.get(reverse('trip list'))
         self.assertContains(
             response,
             'Test Trip',
@@ -906,8 +903,248 @@ class TripListViewTest(ViewTest):
     def test_trip_list_archive_get_teacher(self):
         """teachers are not permitted to view archive"""
         self.client.force_login(self.teacher_user)
-        response = self.client.get(
-            reverse('trip archive')
-        )
+        response = self.client.get(reverse('trip archive'))
         self.assertEqual(response.status_code, 403)
+
+class TripDetailTest(ViewTest):
+    """Tests the trip_detail view"""
+    def test_trip_detail_exists(self):
+        """The test_trip view should exist"""
+        self.assertTrue(hasattr(views, 'trip_detail'))
+
+    def test_trip_detail_mapping(self):
+        """trip_detail should map to /trip/<int:trip_id>/"""
+        self.assertEqual(reverse('trip detail', kwargs={'trip_id': 1}), '/trip/1/')
+
+    def test_trip_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/trip/"""
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+    def test_trip_detail_404_on_nonexistent_trip(self):
+        """should return 404 when nonexistent trip requested"""
+        self.client.force_login(self.admin_user)
+        url = reverse('trip detail', kwargs={'trip_id': 99})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.__class__.__name__, 'HttpResponseNotFound')
+
+    def test_trip_detail_403_notadmin_notcoordinator(self):
+        """should return 403 when not admin and not faculty coordinator for trip"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 2})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.__class__.__name__, 'HttpResponseForbidden')
+
+    def test_trip_detail_archived_trips_admin_readonly(self):
+        """should return archived trips as readonly even for admin users"""
+        self.client.force_login(self.admin_user)
+        url = reverse('trip detail', kwargs={'trip_id': 3})
+        response = self.client.get(url)
+        self.assertTrue(response.context['form'].read_only)
+
+    def test_trip_detail_archived_trips_notadmin_readonly(self):
+        """should return archived trips as readonly"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 3})
+        response = self.client.get(url)
+        self.assertTrue(response.context['form'].read_only)
+
+    def test_trip_detail_approved_notadmin_readonly(self):
+        """should return readonly when trip approved and user non admin"""
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve()
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(url)
+        self.assertTrue(response.context['form'].read_only)
+
+    def test_trip_detail_approved_admin_fillable(self):
+        """should return fillable when trip approved and user admin"""
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve()
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        self.client.force_login(self.admin_user)
+        response = self.client.get(url)
+        self.assertFalse(response.context['form'].read_only)
+
+    def test_trip_detail_released_notadmin_readonly(self):
+        """should return readonly when trip released and user non admin"""
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve()
+        trip1.release()
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(url)
+        self.assertTrue(response.context['form'].read_only)
+
+    def test_trip_detail_released_admin_fillable(self):
+        """should return fillable when trip released and user admin"""
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve()
+        trip1.release()
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        self.client.force_login(self.admin_user)
+        response = self.client.get(url)
+        self.assertFalse(response.context['form'].read_only)
+
+    def test_trip_detail_new_trip_mapped(self):
+        """new trip /trip/new should be mapped"""
+        self.assertEqual(reverse('new field trip'), '/trip/new/')
+
+    def test_trip_detail_new_trip_uses_trip_detail(self):
+        """/trip/new should use the trip_detail method/template"""
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(reverse('new field trip'))
+        self.assertTemplateUsed(response, 'paperlesspermission/trip_detail.html')
+
+    def test_trip_detail_GET_redirected_new_trip_anonymous(self):
+        """should return a login redirect when anonymous user requests /trip/new"""
+        expected_url = '/login?next={0}'.format(reverse('new field trip'))
+        self.check_view_redirect(reverse('new field trip'), expected_url)
+
+    def test_trip_detail_GET_200_new_trip_loggedin(self):
+        """should return fillable when trip new and user logged in"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('new field trip')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['form'].read_only)
+
+    def test_trip_detail_POST_400_on_invalid_data(self):
+        """should return 400 on invalid data POST"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        csrf_token = self.client.get(url).context.get('csrf_token')
+        response = self.client.post(url, {'csrf_token': csrf_token})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.__class__.__name__, 'HttpResponseBadRequest')
+
+    def test_trip_detail_POST_403_on_readonly(self):
+        """should return 403 on 'authorized' POST to readonly form"""
+        self.client.force_login(self.teacher_user)
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve() # trip is now readonly for teacher_user
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        csrf_token = self.client.get(url).context.get('csrf_token')
+        response = self.client.post(url, {'csrf_token': csrf_token})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.__class__.__name__, 'HttpResponseForbidden')
+
+    def test_trip_detail_POST_302_on_valid(self):
+        """should return redirect to /trip/ on authorized, valid data"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        csrf_token = self.client.get(url).context.get('csrf_token')
+        post_body = {
+            'csrf_token'       : csrf_token,
+            'name'             : 'Updated Trip Name',
+            'due_date'         : '05/05/2020',
+            'group_name'       : 'Updated Group Name',
+            'location'         : 'Updated Location',
+            'start_date'       : '06/06/2020',
+            'dropoff_time'     : '10:10',
+            'dropoff_location' : 'Updated Dropoff',
+            'end_date'         : '06/07/2020',
+            'pickup_time'      : '11:11',
+            'pickup_location'  : 'Updated Pickup',
+            'faculty'          : models.Faculty.objects.get(person_id='1000001').id,
+            'students'         : models.Student.objects.get(person_id='202300001').id,
+        }
+        response = self.client.post(url, post_body)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.__class__.__name__, 'HttpResponseRedirect')
+        self.assertEqual(response.url, '/trip')
+
+    def test_trip_detail_POST_302_on_new(self):
+        """should return redirect to /trip on authorized, valid data to /trip/new"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        csrf_token = self.client.get(url).context.get('csrf_token')
+        post_body = {
+            'csrf_token'       : csrf_token,
+            'name'             : 'Updated Trip Name',
+            'due_date'         : '05/05/2020',
+            'group_name'       : 'Updated Group Name',
+            'location'         : 'Updated Location',
+            'start_date'       : '06/06/2020',
+            'dropoff_time'     : '10:10',
+            'dropoff_location' : 'Updated Dropoff',
+            'end_date'         : '06/07/2020',
+            'pickup_time'      : '11:11',
+            'pickup_location'  : 'Updated Pickup',
+            'faculty'          : models.Faculty.objects.get(person_id='1000001').id,
+            'students'         : models.Student.objects.get(person_id='202300001').id,
+        }
+        response = self.client.post(url, post_body)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.__class__.__name__, 'HttpResponseRedirect')
+        self.assertEqual(response.url, '/trip')
+
+    def test_trip_detail_POST_update_db_on_valid(self):
+        """should update database on valid POST"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        csrf_token = self.client.get(url).context.get('csrf_token')
+        post_body = {
+            'csrf_token'       : csrf_token,
+            'name'             : 'Updated Trip Name',
+            'due_date'         : '05/05/2020',
+            'group_name'       : 'Updated Group Name',
+            'location'         : 'Updated Location',
+            'start_date'       : '06/06/2020',
+            'dropoff_time'     : '10:10',
+            'dropoff_location' : 'Updated Dropoff',
+            'end_date'         : '06/07/2020',
+            'pickup_time'      : '11:11',
+            'pickup_location'  : 'Updated Pickup',
+            'faculty'          : models.Faculty.objects.get(person_id='1000002').id,
+            'students'         : models.Student.objects.get(person_id='202200002').id,
+        }
+        self.client.post(url, post_body)
+
+        trip1 = models.FieldTrip.objects.get(id=1)
+        self.assertEqual(trip1.name, 'Updated Trip Name')
+        self.assertEqual(trip1.due_date, date(2020, 5, 5))
+        self.assertEqual(trip1.group_name, 'Updated Group Name')
+        self.assertEqual(trip1.location, 'Updated Location')
+        self.assertEqual(trip1.start_date, date(2020, 6, 6))
+        self.assertEqual(trip1.dropoff_time, time(10, 10))
+        self.assertEqual(trip1.dropoff_location, 'Updated Dropoff')
+        self.assertEqual(trip1.end_date, date(2020, 6, 7))
+        self.assertEqual(trip1.pickup_time, time(11, 11))
+        self.assertEqual(trip1.pickup_location, 'Updated Pickup')
+        try:
+            trip1.students.get(person_id='202200002')
+        except models.Student.DoesNotExist:
+            self.fail('Students not updated')
+        try:
+            trip1.faculty.get(person_id='1000002')
+        except models.Faculty.DoesNotExist:
+            self.fail('Faculty not updated')
+
+    def test_trip_detail_GET_afterupdate_show_values(self):
+        """after db update, values should change"""
+        self.client.force_login(self.teacher_user)
+        url = reverse('trip detail', kwargs={'trip_id': 1})
+        csrf_token = self.client.get(url).context.get('csrf_token')
+        post_body = {
+            'csrf_token'       : csrf_token,
+            'name'             : 'Updated Trip Name',
+            'due_date'         : '05/05/2020',
+            'group_name'       : 'Updated Group Name',
+            'location'         : 'Updated Location',
+            'start_date'       : '06/06/2020',
+            'dropoff_time'     : '10:10',
+            'dropoff_location' : 'Updated Dropoff',
+            'end_date'         : '06/07/2020',
+            'pickup_time'      : '11:11',
+            'pickup_location'  : 'Updated Pickup',
+            'faculty'          : models.Faculty.objects.get(person_id='1000001').id,
+            'students'         : models.Student.objects.get(person_id='202200002').id,
+        }
+        self.client.post(url, post_body)
+        response = self.client.get(url)
+        self.assertContains(response, 'Updated Trip Name')
 

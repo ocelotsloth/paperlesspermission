@@ -161,13 +161,14 @@ def trip_detail(request, trip_id, existing=True):
 
     # 403 if user NOT authorized to view trip
     #   - A user is NOT authorized if:
-    #       - User is NOT member of the admin staff staff
-    #       - User is NOT listed in the field trip faculty coordinator list
-    #       - User is NOT admin AND the trip status is NOT new.
+    #       - User is NOT member of the admin staff AND
+    #           - User is NOT listed in the field trip faculty coordinator list
     # TODO: Write test for this abomination of an if statement
+    # NOTE: The existing and not ... statement skips the check if this is called
+    #       from /trip/new. We would have just created the trip so we cannot use
+    #       the faculty_is_moderator() method yet.
     if (not request.user.is_staff
-            and (not trip.faculty_is_moderator(request.user.email)
-                 or trip.status != FieldTrip.NEW)):
+            and (existing and not trip.faculty_is_moderator(request.user.email))):
         raise PermissionDenied
 
     # This point forward, we only have requests with valid or new trip_ids that
@@ -187,18 +188,21 @@ def trip_detail(request, trip_id, existing=True):
     title = 'Field Trip Detail' if existing else 'Create Field Trip'
 
     if request.method == 'POST':
+        if read_only:
+            raise PermissionDenied
         form = TripDetailForm(request.POST)
-        if form.is_valid():
-            if not existing:
-                trip = FieldTrip()
-            form.update_trip(trip)
-            async_generate_permission_slips.delay(trip.id, notify=False)
-            return redirect('/trip')
+        if not form.is_valid():
+            return HttpResponseBadRequest()
+        #if not existing:
+        #    trip = FieldTrip()
+        form.update_trip(trip)
+        async_generate_permission_slips.delay(trip.id, notify=False)
+        return redirect('/trip')
 
     context = {
         'title': title,
         'trip': trip,
-        'form': form
+        'form': form,
     }
     return render(request, 'paperlesspermission/trip_detail.html', context)
 
@@ -287,6 +291,7 @@ def slip_reset(request, slip_id):
 
 @login_required
 def slip_resend(request, slip_id):
+    """Resend slip emails and return 204. Return 403 if user is not admin staff."""
     if not request.user.is_staff:
         raise PermissionDenied
     permission_slip = get_object_or_404(PermissionSlip, id=slip_id)
