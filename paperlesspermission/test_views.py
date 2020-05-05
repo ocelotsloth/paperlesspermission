@@ -1148,3 +1148,205 @@ class TripDetailTest(ViewTest):
         response = self.client.get(url)
         self.assertContains(response, 'Updated Trip Name')
 
+class ApproveTripViewTest(ViewTest):
+    """tests for the approve_trip view"""
+    def test_exists(self):
+        """The approve_trip view should exist"""
+        self.assertTrue(hasattr(views, 'approve_trip'))
+
+    def test_mapping(self):
+        """approve_trip should map to /trip/<int:trip_id>/approve/"""
+        self.assertEqual(reverse('approve trip', kwargs={'trip_id': 1}), '/trip/1/approve/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/trip/<int:trip_id>/approve/"""
+        url = reverse('approve trip', kwargs={'trip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+    def test_returns_404_on_invalid_trip(self):
+        """should return a 404 if the given trip does not exist"""
+        url = reverse('approve trip', kwargs={'trip_id': 99})
+        self.client.force_login(self.admin_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_reject_nonadmin(self):
+        """should reject nonadmin users"""
+        url = reverse('approve trip', kwargs={'trip_id': 1})
+        trip1 = models.FieldTrip(id=1)
+        # Check initial status
+        self.assertEqual(trip1.status, models.FieldTrip.NEW)
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        trip1 = models.FieldTrip.objects.get(id=1)
+        # Check final status
+        self.assertEqual(trip1.status, models.FieldTrip.NEW)
+
+    def test_approves_valid_trip(self):
+        """should update the database and approve a given trip"""
+        url = reverse('approve trip', kwargs={'trip_id': 1})
+        trip1 = models.FieldTrip.objects.get(id=1)
+        # Check initial status
+        self.assertEqual(trip1.status, models.FieldTrip.NEW)
+        # Call the update
+        self.client.force_login(self.admin_user)
+        self.client.get(url)
+        # Check final status
+        trip1.refresh_from_db()
+        self.assertEqual(trip1.status, models.FieldTrip.APPROVED)
+
+class ReleaseTripViewTest(ViewTest):
+    """tests for the release_trip view"""
+    def test_exists(self):
+        """The release_trip view should exist"""
+        self.assertTrue(hasattr(views, 'release_trip'))
+
+    def test_mapping(self):
+        """approve_trip should map to /trip/<int:trip_id>/approve/"""
+        self.assertEqual(reverse('release trip emails', kwargs={'trip_id': 1}), '/trip/1/release/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/trip/<int:trip_id>/release/"""
+        url = reverse('release trip emails', kwargs={'trip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+    def test_reject_nonadmin(self):
+        """should reject non-admin users"""
+        url = reverse('release trip emails', kwargs={'trip_id': 1})
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve()
+        # Check initial status
+        self.assertEqual(trip1.status, models.FieldTrip.APPROVED)
+        # Call web request
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        # Check final status
+        trip1.refresh_from_db()
+        self.assertEqual(trip1.status, models.FieldTrip.APPROVED)
+
+    def test_releases_valid_trip(self):
+        """should update database and release a given trip"""
+        url = reverse('release trip emails', kwargs={'trip_id': 1})
+        trip1 = models.FieldTrip.objects.get(id=1)
+        trip1.approve()
+        # Check initial status
+        self.assertEqual(trip1.status, models.FieldTrip.APPROVED)
+        # Call web request
+        self.client.force_login(self.admin_user)
+        self.client.get(url)
+        # Check final status
+        trip1.refresh_from_db()
+        self.assertEqual(trip1.status, models.FieldTrip.RELEASED)
+
+class ArchiveTripViewTest(ViewTest):
+    """tests for the archive_trip view"""
+    def test_exists(self):
+        """The archive_trip view should exist"""
+        self.assertTrue(hasattr(views, 'archive_trip'))
+
+    def test_mapping(self):
+        """archive_trip should map to /trip/<int:trip_id>/archive/"""
+        self.assertEqual(reverse('archive trip', kwargs={'trip_id': 1}), '/trip/1/archive/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/trip/<int:trip_id>/archive/"""
+        url = reverse('archive trip', kwargs={'trip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+    def test_reject_nonadmin(self):
+        """should reject nonadmin users"""
+        url = reverse('archive trip', kwargs={'trip_id': 1})
+        trip1 = models.FieldTrip.objects.get(id=1)
+        # Check initial status
+        self.assertNotEqual(trip1.status, models.FieldTrip.ARCHIVED)
+        # web request
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(url)
+        # check web request
+        self.assertEqual(response.status_code, 403)
+        # check final status
+        trip1.refresh_from_db()
+        self.assertNotEqual(trip1.status, models.FieldTrip.ARCHIVED)
+
+    def test_404_on_invalid_trip(self):
+        """should return 404 when given invalid trip"""
+        url = reverse('archive trip', kwargs={'trip_id': 99})
+        self.client.force_login(self.admin_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_archive_valid_trip(self):
+        """should update database on valid request"""
+        url = reverse('archive trip', kwargs={'trip_id': 1})
+        trip1 = models.FieldTrip.objects.get(id=1)
+        # initial check
+        self.assertNotEqual(trip1.status, models.FieldTrip.ARCHIVED)
+        # web request
+        self.client.force_login(self.admin_user)
+        self.client.get(url)
+        # final check
+        trip1.refresh_from_db()
+        self.assertEqual(trip1.status, models.FieldTrip.ARCHIVED)
+
+class TripStatusViewTest(ViewTest):
+    """tests for the trip_status view"""
+    def test_exists(self):
+        """The trip_status view should exist"""
+        self.assertTrue(hasattr(views, 'archive_trip'))
+
+    def test_mapping(self):
+        """trip_status should map to /trip/<int:trip_id>/status/"""
+        self.assertEqual(reverse('trip status', kwargs={'trip_id': 1}), '/trip/1/status/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/trip/<int:trip_id>/status/"""
+        url = reverse('trip status', kwargs={'trip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+class NewTripViewTest(ViewTest):
+    """tests for the new_trip view"""
+    def test_exists(self):
+        """The new_trip view should exist"""
+        self.assertTrue(hasattr(views, 'new_trip'))
+
+    def test_mapping(self):
+        """new_trip should map to /trip/new/"""
+        self.assertEqual(reverse('new field trip'), '/trip/new/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/trip/<int:trip_id>/status/"""
+        url = reverse('new field trip')
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+class SlipResetViewTest(ViewTest):
+    """tests for the slip_reset view"""
+    def test_exists(self):
+        """The slip_reset view should exist"""
+        self.assertTrue(hasattr(views, 'slip_reset'))
+
+    def test_mapping(self):
+        """slip_reset should map to /slip/<int:slip_id>/reset/"""
+        self.assertEqual(reverse('reset permission slip', kwargs={'slip_id': 1}), '/slip/1/reset/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/slip/<int:slip_id>/status/"""
+        url = reverse('reset permission slip', kwargs={'slip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
+class SlipResendViewTest(ViewTest):
+    """tests for the slip_resend view"""
+    def test_exists(self):
+        """The slip_resend view should exist"""
+        self.assertTrue(hasattr(views, 'slip_resend'))
+
+    def test_mapping(self):
+        """slip_reset should map to /slip/<int:slip_id>/resend/"""
+        self.assertEqual(reverse('resend permission slip', kwargs={'slip_id': 1}), '/slip/1/resend/')
+
+    def test_redirect_anonymous(self):
+        """should redirect anonymous users to /login?next=/slip/<int:slip_id>/resend/"""
+        url = reverse('resend permission slip', kwargs={'slip_id': 1})
+        self.check_view_redirect(url, '/login?next={0}'.format(url))
+
