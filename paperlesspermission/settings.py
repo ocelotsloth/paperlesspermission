@@ -63,6 +63,19 @@ env = environ.Env(
     CELERY_BROKER_HOST=(str, ''),
     CELERY_BROKER_PORT=(str, ''),
     CELERY_BROKER_VHOST=(str, ''),
+    MEMCACHED_HOST=(str, 'localhost'),
+    MEMCACHED_PORT=(str, '11211'),
+    MARIADB_DB_NAME=(str, 'paperlesspermission'),
+    MARIADB_HOST=(str, 'localhost'),
+    MARIADB_PORT=(str, '3306'),
+    MARIADB_USER=(str, ''),
+    MARIADB_PASS=(str, ''),
+    DJANGO_STATIC_ROOT=(str, ''),
+    DJANGO_TIME_ZONE=(str, ''),
+    DJANGO_HTTPS=(bool, True),
+    DJANGO_HOST=(str, ''),
+    DJANGO_PORT=(str, ''),
+    DJANGO_ALLOWED_HOSTS=(str, '')
 )
 environ.Env.read_env()
 
@@ -79,8 +92,18 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+BASE_URL_PROTO = 'https://' if env('DJANGO_HTTPS') else 'http://'
 
+if env('DJANGO_PORT') not in ['', '80', '443']:
+    BASE_URL_PORT = ':{0}'.format(env('DJANGO_PORT'))
+else:
+    BASE_URL_PORT = ''
+
+BASE_URL = '{0}{1}{2}'.format(BASE_URL_PROTO,
+                              env('DJANGO_HOST'),
+                              BASE_URL_PORT)
+
+ALLOWED_HOSTS = env('DJANGO_ALLOWED_HOSTS').split(' ')
 
 # Application definition
 
@@ -94,7 +117,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admindocs',
     'crispy_forms',
-    'django_filters',
     'django_select2',
     'bootstrap_datepicker_plus',
     'django_celery_results',
@@ -140,18 +162,19 @@ WSGI_APPLICATION = 'paperlesspermission.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'paperlesspermission',
-        'USER': 'paperlesspermission',
-        'PASSWORD': 'paperlesspermission',
-        'HOST': 'localhost',
-        'PORT': '',
+        'NAME': env('MARIADB_DB_NAME'),
+        'USER': env('MARIADB_USER'),
+        'PASSWORD': env('MARIADB_PASS'),
+        'HOST': env('MARIADB_HOST'),
+        'PORT': env('MARIADB_PORT'),
     }
 }
 
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-        'LOCATION': '127.0.0.1:11211',
+        'LOCATION': '{0}:{1}'.format(env('MEMCACHED_HOST'),
+                                     env('MEMCACHED_PORT')),
     },
 }
 
@@ -211,7 +234,7 @@ LANGUAGE_CODE = 'en-us'
 
 # Be sure to run (as root):
 # mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root mysql
-TIME_ZONE = 'America/New_York'
+TIME_ZONE = env('DJANGO_TIME_ZONE')
 
 USE_I18N = True
 
@@ -224,6 +247,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = env('DJANGO_STATIC_ROOT')
 
 # Logging settings
 logging.config.dictConfig({

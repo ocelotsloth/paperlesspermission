@@ -1,0 +1,78 @@
+version: "3.8"
+services:
+
+  fakesmtp:
+    image: reachfive/fake-smtp-server
+    ports:
+      - "1080:1080/tcp"
+
+  db:
+    image: mariadb:10.5.2
+    environment:
+      MYSQL_DATABASE: ${MARIADB_DB_NAME}
+      MYSQL_USER: ${MARIADB_USER}
+      MYSQL_PASSWORD: ${MARIADB_PASS}
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+    volumes:
+      - ./volumes/db:/var/lib/mysql
+    deploy:
+      restart_policy:
+        condition: any
+
+  rabbitmq:
+    image: rabbitmq:3.8.3-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${CELERY_BROKER_USER}
+      RABBITMQ_DEFAULT_PASS: ${CELERY_BROKER_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${CELERY_BROKER_VHOST}
+    deploy:
+      restart_policy:
+        condition: any
+
+  worker:
+    image: ocelotsloth/paperlesspermission:v0.1
+    env_file:
+      - .env
+    environment:
+      MODE: 'CELERY_WORKER'
+    depends_on:
+      - db
+    deploy:
+      restart_policy:
+        condition: any
+
+  memcached:
+    image: memcached:1.6.5
+    deploy:
+      restart_policy:
+        condition: any
+
+  ldap:
+    image: ocelotsloth/stunnel:latest
+    volumes:
+      - ./volumes/ldap/Google.crt:/etc/stunnel/Google.crt:ro
+      - ./volumes/ldap/Google.key:/etc/stunnel/Google.key:ro
+      - ./volumes/ldap/stunnel.conf:/etc/stunnel/stunnel.conf:ro
+    deploy:
+      restart_policy:
+        condition: any
+
+  app:
+    image: ocelotsloth/paperlesspermission:v0.1
+    env_file:
+      - .env
+    environment:
+      MODE: 'APP'
+      DJANGO_MIGRATE: 'yes'
+    ports:
+      - "8000:8020/tcp"
+    depends_on:
+      - db
+      - rabbitmq
+      - memcached
+      - ldap
+      - fakesmtp
+    deploy:
+      restart_policy:
+        condition: any
+

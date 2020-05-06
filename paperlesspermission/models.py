@@ -374,6 +374,7 @@ class PermissionSlip(models.Model):
         emails = []
         student = self.student
         efrom = getattr(settings, 'EMAIL_FROM_ADDRESS')
+        base_url = getattr(settings, 'BASE_URL')
         for slip_link in slip_links:
 
             if slip_link.guardian:
@@ -399,7 +400,7 @@ DJO Activities Office""".format(
                     self.field_trip.name,
                     self.field_trip.location,
                     self.field_trip.start_date,
-                    "http://localhost:8000/slip/{0}".format(slip_link.link_id),
+                    "{0}/slip/{1}".format(base_url, slip_link.link_id),
                     self.field_trip.due_date
                 )
             elif slip_link.student:
@@ -424,7 +425,7 @@ DJO Activities Office""".format(
                     self.field_trip.name,
                     self.field_trip.location,
                     self.field_trip.start_date,
-                    "http://localhost:8000/slip/{0}".format(slip_link.link_id),
+                    "{0}/slip/{1}".format(base_url, slip_link.link_id),
                     self.field_trip.due_date
                 )
 
